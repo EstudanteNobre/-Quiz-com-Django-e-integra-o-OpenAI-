@@ -1,0 +1,432 @@
+{% extends "quiz/base.html" %}
+
+{% block title %}Revisar Perguntas Erradas - Quiz IA{% endblock %}
+
+{% block extra_js %}
+<script>
+// Desabilitar auto-logout para esta página
+window.__infoQuizAutoLogoutDispatched = true;
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="review-container">
+    <div class="review-header">
+        <div class="ia-badge">
+            <span class="ia-icon">📚</span>
+            <span class="ia-text">Revisão de Estudos</span>
+        </div>
+        <h2 class="review-title">Perguntas Erradas - {{ tema }}</h2>
+        <p class="review-subtitle">Revise suas respostas e aprenda com dicas personalizadas</p>
+    </div>
+
+    <!-- Resumo Geral -->
+    {% if resumo_geral %}
+    <div class="summary-card">
+        <h3 class="summary-title">💡 Resumo Geral</h3>
+        <p class="summary-text">{{ resumo_geral }}</p>
+    </div>
+    {% endif %}
+
+    <!-- Perguntas Erradas -->
+    <div class="wrong-questions-section">
+        <h3 class="section-title">❌ Perguntas Erradas ({{ total_erradas }})</h3>
+        
+        {% for pergunta in perguntas_erradas %}
+        <div class="wrong-question-card">
+            <div class="question-header">
+                <span class="question-number">Pergunta {{ forloop.counter }}</span>
+                <span class="difficulty-badge nivel-{{ pergunta.nivel }}">
+                    {% if pergunta.nivel == 'facil' %}🟢 Fácil
+                    {% elif pergunta.nivel == 'medio' %}🟡 Médio
+                    {% else %}🔴 Difícil{% endif %}
+                </span>
+            </div>
+            
+            <p class="question-text">{{ pergunta.texto }}</p>
+            
+            <div class="answers-review">
+                <div class="answer-item {% if pergunta.resposta_correta == 'A' %}correct{% elif pergunta.resposta_escolhida == 'A' %}wrong{% endif %}">
+                    <span class="answer-letter">A</span>
+                    <span class="answer-text">{{ pergunta.alternativa_a }}</span>
+                    {% if pergunta.resposta_correta == 'A' %}<span class="answer-badge">✓ Correta</span>{% endif %}
+                    {% if pergunta.resposta_escolhida == 'A' and pergunta.resposta_correta != 'A' %}<span class="answer-badge wrong-badge">✗ Sua resposta</span>{% endif %}
+                </div>
+                
+                <div class="answer-item {% if pergunta.resposta_correta == 'B' %}correct{% elif pergunta.resposta_escolhida == 'B' %}wrong{% endif %}">
+                    <span class="answer-letter">B</span>
+                    <span class="answer-text">{{ pergunta.alternativa_b }}</span>
+                    {% if pergunta.resposta_correta == 'B' %}<span class="answer-badge">✓ Correta</span>{% endif %}
+                    {% if pergunta.resposta_escolhida == 'B' and pergunta.resposta_correta != 'B' %}<span class="answer-badge wrong-badge">✗ Sua resposta</span>{% endif %}
+                </div>
+                
+                <div class="answer-item {% if pergunta.resposta_correta == 'C' %}correct{% elif pergunta.resposta_escolhida == 'C' %}wrong{% endif %}">
+                    <span class="answer-letter">C</span>
+                    <span class="answer-text">{{ pergunta.alternativa_c }}</span>
+                    {% if pergunta.resposta_correta == 'C' %}<span class="answer-badge">✓ Correta</span>{% endif %}
+                    {% if pergunta.resposta_escolhida == 'C' and pergunta.resposta_correta != 'C' %}<span class="answer-badge wrong-badge">✗ Sua resposta</span>{% endif %}
+                </div>
+                
+                <div class="answer-item {% if pergunta.resposta_correta == 'D' %}correct{% elif pergunta.resposta_escolhida == 'D' %}wrong{% endif %}">
+                    <span class="answer-letter">D</span>
+                    <span class="answer-text">{{ pergunta.alternativa_d }}</span>
+                    {% if pergunta.resposta_correta == 'D' %}<span class="answer-badge">✓ Correta</span>{% endif %}
+                    {% if pergunta.resposta_escolhida == 'D' and pergunta.resposta_correta != 'D' %}<span class="answer-badge wrong-badge">✗ Sua resposta</span>{% endif %}
+                </div>
+            </div>
+            
+            <!-- Dica de Estudo -->
+            <div class="study-tip">
+                <h4 class="tip-title">💡 Dica de Estudo</h4>
+                <p class="tip-text">{{ pergunta.dica }}</p>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Recursos Sugeridos -->
+    {% if recursos %}
+    <div class="resources-card">
+        <h3 class="resources-title">📖 Recursos Sugeridos para Estudo</h3>
+        <ul class="resources-list">
+            {% for recurso in recursos %}
+            <li>{{ recurso }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+    {% endif %}
+
+    <!-- Ações -->
+    <div class="review-actions">
+        <a href="{% url 'quiz:quiz_ia_escolher_tema' %}?limpar=1" class="btn-action btn-primary-action">
+            <span class="btn-icon">🎮</span>
+            Jogar Novo Quiz
+        </a>
+        <a href="{% url 'quiz:dashboard' %}" class="btn-action btn-secondary-action">
+            <span class="btn-icon">🏠</span>
+            Ir para Dashboard
+        </a>
+    </div>
+</div>
+
+<style>
+.review-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.review-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.ia-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+    padding: 8px 16px;
+    border-radius: 20px;
+    margin-bottom: 15px;
+}
+
+.ia-icon {
+    font-size: 18px;
+}
+
+.ia-text {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.review-title {
+    font-size: 2rem;
+    color: #fff;
+    margin-bottom: 10px;
+}
+
+.review-subtitle {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 1rem;
+}
+
+/* Resumo Geral */
+.summary-card {
+    background: rgba(255, 193, 7, 0.15);
+    border: 2px solid rgba(255, 193, 7, 0.3);
+    border-radius: 16px;
+    padding: 25px;
+    margin-bottom: 30px;
+}
+
+.summary-title {
+    color: #ffc107;
+    font-size: 1.3rem;
+    margin-bottom: 12px;
+}
+
+.summary-text {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1rem;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* Seção de Perguntas Erradas */
+.wrong-questions-section {
+    margin-bottom: 30px;
+}
+
+.section-title {
+    color: #fff;
+    font-size: 1.5rem;
+    margin-bottom: 25px;
+    text-align: center;
+}
+
+.wrong-question-card {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    padding: 25px;
+    margin-bottom: 25px;
+}
+
+.question-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.question-number {
+    color: #ff6b9d;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.difficulty-badge {
+    padding: 5px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.difficulty-badge.nivel-facil {
+    background: rgba(40, 167, 69, 0.2);
+    color: #28a745;
+}
+
+.difficulty-badge.nivel-medio {
+    background: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+}
+
+.difficulty-badge.nivel-dificil {
+    background: rgba(220, 53, 69, 0.2);
+    color: #dc3545;
+}
+
+.question-text {
+    color: #fff;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    margin-bottom: 20px;
+    font-weight: 500;
+}
+
+.answers-review {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.answer-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+}
+
+.answer-item.correct {
+    background: rgba(40, 167, 69, 0.2);
+    border-color: rgba(40, 167, 69, 0.5);
+}
+
+.answer-item.wrong {
+    background: rgba(220, 53, 69, 0.2);
+    border-color: rgba(220, 53, 69, 0.5);
+}
+
+.answer-letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 35px;
+    height: 35px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 16px;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.answer-item.correct .answer-letter {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.answer-item.wrong .answer-letter {
+    background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+}
+
+.answer-text {
+    flex: 1;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 15px;
+}
+
+.answer-badge {
+    padding: 4px 10px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(40, 167, 69, 0.3);
+    color: #28a745;
+}
+
+.answer-badge.wrong-badge {
+    background: rgba(220, 53, 69, 0.3);
+    color: #dc3545;
+}
+
+/* Dica de Estudo */
+.study-tip {
+    background: rgba(102, 126, 234, 0.15);
+    border-left: 4px solid #667eea;
+    border-radius: 8px;
+    padding: 15px 20px;
+    margin-top: 15px;
+}
+
+.tip-title {
+    color: #667eea;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.tip-text {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+/* Recursos */
+.resources-card {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    padding: 25px;
+    margin-bottom: 30px;
+}
+
+.resources-title {
+    color: #fff;
+    font-size: 1.2rem;
+    margin-bottom: 15px;
+}
+
+.resources-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.resources-list li {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 15px;
+    padding: 8px 0;
+    padding-left: 25px;
+    position: relative;
+}
+
+.resources-list li:before {
+    content: "📌";
+    position: absolute;
+    left: 0;
+}
+
+/* Ações */
+.review-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+.btn-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 15px 25px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.btn-primary-action {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+}
+
+.btn-primary-action:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.5);
+}
+
+.btn-secondary-action {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.btn-secondary-action:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.btn-icon {
+    font-size: 20px;
+}
+
+/* Responsivo */
+@media (max-width: 600px) {
+    .review-title {
+        font-size: 1.5rem;
+    }
+    
+    .question-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .answer-item {
+        padding: 12px;
+    }
+}
+</style>
+{% endblock %}
+

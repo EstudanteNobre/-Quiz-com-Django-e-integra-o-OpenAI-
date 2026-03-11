@@ -1,0 +1,1040 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Info Quiz{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'quiz/style.css' %}?v=8">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div class="container">
+        <!-- Cabeçalho com Logo -->
+        <div class="header">
+            <div class="logo-icon-new">💻</div>
+            <h1 class="logo-text-large">Info Quiz</h1>
+        </div>
+
+        <!-- Navegação -->
+        {% if not user.is_authenticated %}
+        <nav class="nav">
+            <a href="{% url 'quiz:home' %}" class="nav-button">Home</a>
+            <a href="{% url 'quiz:login' %}" class="nav-button">Login</a>
+            <a href="{% url 'quiz:cadastro' %}" class="nav-button">Cadastro</a>
+        </nav>
+        {% endif %}
+
+        <!-- Conteúdo Principal -->
+        <main class="main-content">
+            {% block content %}{% endblock %}
+        </main>
+    </div>
+
+    <!-- Música de Fundo (apenas páginas iniciais) -->
+    <audio id="background-music" loop preload="auto">
+        <source src="{% static 'quiz/audio/musica1.mp3' %}" type="audio/mpeg">
+    </audio>
+    
+    <!-- Botão de Controle de Música -->
+    <button id="music-toggle" class="music-toggle-btn" title="Música">
+        <span id="music-icon">🔊</span>
+    </button>
+
+    <script>
+    (function() {
+        const music = document.getElementById('background-music');
+        const musicToggle = document.getElementById('music-toggle');
+        const musicIcon = document.getElementById('music-icon');
+        
+        if (!music || !musicToggle) return;
+        
+        // Páginas onde a música NÃO deve tocar (parar música)
+        const paginasSemMusica = [
+            '/escolher-tema/',
+            '/jogar/',
+            '/quiz-ia/',
+            '/rodada/',
+            '/resultado/',
+            '/admin-dashboard/'
+        ];
+        
+        const paginaAtual = window.location.pathname;
+        
+        // Verificar se está em uma página SEM música
+        const devePararMusica = paginasSemMusica.some(pagina => 
+            paginaAtual.includes(pagina)
+        );
+        
+        // Se deve parar, para imediatamente e esconde o botão
+        if (devePararMusica) {
+            music.pause();
+            music.currentTime = 0;
+            musicToggle.style.display = 'none';
+            // Limpar a posição salva
+            sessionStorage.removeItem('musicaPosicao');
+            return; // Sai do script
+        }
+        
+        // Recuperar estado da música do sessionStorage
+        let musicaMutada = sessionStorage.getItem('musicaMutada') === 'true';
+        let musicaPosicao = parseFloat(sessionStorage.getItem('musicaPosicao')) || 0;
+        
+        // Configurar volume
+        music.volume = 0.3;
+        
+        // Mostrar botão
+        musicToggle.style.display = 'flex';
+        
+        // Função para atualizar ícone
+        function atualizarIcone() {
+            if (musicaMutada || music.paused) {
+                musicIcon.textContent = '🔇';
+                musicToggle.classList.add('muted');
+            } else {
+                musicIcon.textContent = '🔊';
+                musicToggle.classList.remove('muted');
+            }
+        }
+        
+        // Função para tocar música
+        function tocarMusica() {
+            if (!musicaMutada) {
+                music.currentTime = musicaPosicao;
+                music.play().catch(function(e) {
+                    console.log('Autoplay bloqueado, aguardando interação');
+                });
+            }
+            atualizarIcone();
+        }
+        
+        // Salvar posição antes de sair da página
+        window.addEventListener('beforeunload', function() {
+            if (!music.paused) {
+                sessionStorage.setItem('musicaPosicao', music.currentTime);
+            }
+        });
+        
+        // Toggle música
+        musicToggle.addEventListener('click', function() {
+            musicaMutada = !musicaMutada;
+            sessionStorage.setItem('musicaMutada', musicaMutada);
+            
+            if (musicaMutada) {
+                music.pause();
+            } else {
+                music.play().catch(function(e) {});
+            }
+            atualizarIcone();
+        });
+        
+        // Iniciar música
+        tocarMusica();
+        
+        // Tentar tocar após primeira interação do usuário
+        document.addEventListener('click', function iniciarMusica() {
+            if (!musicaMutada && music.paused) {
+                music.play().catch(function(e) {});
+                atualizarIcone();
+            }
+            document.removeEventListener('click', iniciarMusica);
+        }, { once: true });
+    })();
+    </script>
+
+    <style>
+    .music-toggle-btn {
+        position: fixed;
+        bottom: 100px;
+        right: 30px;
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        color: #ffffff;
+        font-size: 22px;
+        cursor: pointer;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+    
+    .music-toggle-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+    }
+    
+    .music-toggle-btn.muted {
+        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+        box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4);
+    }
+    
+    @media (max-width: 768px) {
+        .music-toggle-btn {
+            bottom: 90px;
+            right: 20px;
+            width: 45px;
+            height: 45px;
+            font-size: 20px;
+        }
+    }
+    </style>
+
+    {% if user.is_authenticated %}
+    <script>
+        (function() {
+            const logoutBaseUrl = "{% url 'quiz:logout' %}";
+            let navigatingInternally = false;
+            const resetDelay = 1000;
+
+            const getCookie = (name) => {
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) {
+                    return parts.pop().split(';').shift();
+                }
+                return null;
+            };
+
+            const buildPayload = () => {
+                const params = new URLSearchParams();
+                params.append('auto', '1');
+                const csrfToken = getCookie('csrftoken');
+                if (csrfToken) {
+                    params.append('csrfmiddlewaretoken', csrfToken);
+                    return params;
+                }
+                return null;
+            };
+
+            const markInternalNavigation = () => {
+                navigatingInternally = true;
+                window.setTimeout(() => {
+                    navigatingInternally = false;
+                }, resetDelay);
+            };
+
+            document.addEventListener('click', function(event) {
+                const link = event.target.closest('a[href]');
+                if (!link) {
+                    return;
+                }
+                try {
+                    const url = new URL(link.href, window.location.href);
+                    if (url.origin === window.location.origin) {
+                        markInternalNavigation();
+                    }
+                } catch (err) {
+                    // Ignora URLs inválidas
+                }
+            }, { capture: true });
+
+            document.addEventListener('submit', function(event) {
+                const form = event.target;
+                if (!form || !form.action) {
+                    return;
+                }
+                try {
+                    const url = new URL(form.action, window.location.href);
+                    if (url.origin === window.location.origin) {
+                        markInternalNavigation();
+                    }
+                } catch (err) {
+                    // Ignora URLs inválidas
+                }
+            }, { capture: true });
+
+            const enviarLogout = () => {
+                if (navigatingInternally) {
+                    return;
+                }
+                if (window.__infoQuizAutoLogoutDispatched) {
+                    return;
+                }
+                window.__infoQuizAutoLogoutDispatched = true;
+                const payload = buildPayload();
+                const logoutUrl = `${logoutBaseUrl}?auto=1`;
+                if (payload && navigator.sendBeacon) {
+                    try {
+                        const blob = new Blob([payload.toString()], {
+                            type: 'application/x-www-form-urlencoded'
+                        });
+                        navigator.sendBeacon(logoutBaseUrl, blob);
+                        return;
+                    } catch (err) {
+                        // Fallback para fetch
+                    }
+                }
+                try {
+                    if (payload) {
+                        fetch(logoutBaseUrl, {
+                            method: 'POST',
+                            body: payload,
+                            credentials: 'include',
+                            keepalive: true
+                        }).catch(() => {});
+                    }
+                } catch (err) {
+                    // Sem suporte a keepalive/fetch, ignoramos
+                }
+                if (!payload) {
+                    const img = new Image();
+                    img.src = `${logoutUrl}&ts=${Date.now()}`;
+                }
+            };
+
+            const agendarLogout = () => {
+                if (navigatingInternally) {
+                    return;
+                }
+                setTimeout(enviarLogout, 0);
+            };
+
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === 'hidden') {
+                    agendarLogout();
+                }
+            });
+
+            window.addEventListener('pagehide', agendarLogout);
+            window.addEventListener('beforeunload', agendarLogout);
+        })();
+    </script>
+    {% endif %}
+
+    {% block extra_js %}{% endblock %}
+
+    <!-- Botão de Acessibilidade -->
+    <button id="accessibility-btn" class="accessibility-button" aria-label="Opções de Acessibilidade" title="Opções de Acessibilidade">
+        <svg class="accessibility-icon" width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="iconGradient" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" /><stop offset="100%" style="stop-color:#ffffff;stop-opacity:0.9" /></linearGradient></defs><path d="M 8 12 Q 16 8 24 12" stroke="url(#iconGradient)" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M 8 12 Q 16 16 24 12" stroke="url(#iconGradient)" stroke-width="2" stroke-linecap="round" fill="none"/><circle cx="16" cy="12" r="1.5" fill="#ffffff"/><line x1="8" y1="20" x2="24" y2="20" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/><line x1="10" y1="24" x2="22" y2="24" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/><line x1="12" y1="28" x2="20" y2="28" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/></svg>
+    </button>
+
+    <!-- Painel de Acessibilidade -->
+    <div id="accessibility-panel" class="accessibility-panel" style="display: none;">
+        <div class="accessibility-panel-header">
+            <h3>Opções de Acessibilidade</h3>
+            <button id="close-accessibility" class="close-btn" aria-label="Fechar">&times;</button>
+        </div>
+        <div class="accessibility-panel-content">
+            <div class="accessibility-option">
+                <h4>Modo de Visão</h4>
+                <div class="option-buttons">
+                    <button class="option-btn active" data-mode="normal">Normal</button>
+                    <button class="option-btn" data-mode="protanopia">Protanopia</button>
+                    <button class="option-btn" data-mode="deuteranopia">Deuteranopia</button>
+                    <button class="option-btn" data-mode="tritanopia">Tritanopia</button>
+                </div>
+            </div>
+            
+            <div class="accessibility-option">
+                <h4>Alto Contraste</h4>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="high-contrast">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            
+            <div class="accessibility-option">
+                <h4>Tamanho da Fonte</h4>
+                <div class="font-size-controls">
+                    <button class="font-btn" id="font-decrease" aria-label="Diminuir fonte">A-</button>
+                    <span id="font-size-display">100%</span>
+                    <button class="font-btn" id="font-increase" aria-label="Aumentar fonte">A+</button>
+                    <button class="font-btn" id="font-reset" aria-label="Resetar fonte">A=</button>
+                </div>
+            </div>
+            
+            <div class="accessibility-option">
+                <h4>🔊 Leitura de Tela</h4>
+                <div class="screen-reader-controls">
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="screen-reader-toggle">
+                        <span class="toggle-slider"></span>
+                    </label>
+                    <span id="screen-reader-status" class="reader-status">Desativado</span>
+                </div>
+                <p class="reader-hint">Quando ativado, clique em qualquer texto para ouvir a leitura.</p>
+                <div class="reader-speed-control" id="reader-speed-control" style="display: none;">
+                    <span>Velocidade:</span>
+                    <input type="range" id="reader-speed" min="0.5" max="2" step="0.1" value="1">
+                    <span id="reader-speed-value">1x</span>
+                </div>
+                <button id="stop-reading" class="stop-reading-btn" style="display: none;">⏹️ Parar Leitura</button>
+            </div>
+            
+            <div class="accessibility-option">
+                <button id="reset-accessibility" class="reset-btn">Resetar Todas as Configurações</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CSS e JavaScript de Acessibilidade -->
+    <style>
+        /* Botão de Acessibilidade */
+        .accessibility-button {
+            position: fixed !important;
+            bottom: 30px !important;
+            right: 30px !important;
+            width: 60px !important;
+            height: 60px !important;
+            border-radius: 50% !important;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+            border: none !important;
+            color: #ffffff !important;
+            font-size: 28px !important;
+            cursor: pointer !important;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.5) !important;
+            z-index: 10000 !important;
+            transition: all 0.3s ease !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+        }
+
+        .accessibility-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.7);
+        }
+
+        .accessibility-icon {
+            font-size: 32px;
+        }
+
+        /* Painel de Acessibilidade */
+        .accessibility-panel {
+            position: fixed;
+            bottom: 100px;
+            right: 30px;
+            width: 350px;
+            max-height: 600px;
+            background: rgba(26, 26, 46, 0.95);
+            backdrop-filter: blur(20px);
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+            z-index: 10001;
+            overflow-y: auto;
+            color: #ffffff;
+        }
+
+        .accessibility-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .accessibility-panel-header h3 {
+            margin: 0;
+            font-size: 20px;
+            color: #ffffff;
+        }
+
+        .close-btn {
+            background: transparent;
+            border: none;
+            color: #ffffff;
+            font-size: 28px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s ease;
+        }
+
+        .close-btn:hover {
+            transform: rotate(90deg);
+        }
+
+        .accessibility-option {
+            margin-bottom: 25px;
+        }
+
+        .accessibility-option h4 {
+            margin: 0 0 12px 0;
+            font-size: 16px;
+            color: #ffffff;
+        }
+
+        .option-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .option-btn {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: #ffffff;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .option-btn:hover {
+            background: rgba(102, 126, 234, 0.3);
+            border-color: rgba(102, 126, 234, 0.6);
+        }
+
+        .option-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-color: rgba(102, 126, 234, 0.8);
+        }
+
+        /* Toggle Switch */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 30px;
+        }
+
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: 0.3s;
+            border-radius: 30px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 22px;
+            width: 22px;
+            left: 4px;
+            bottom: 4px;
+            background-color: #ffffff;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+
+        .toggle-switch input:checked + .toggle-slider {
+            background-color: #667eea;
+        }
+
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(30px);
+        }
+
+        /* Controles de Fonte */
+        .font-size-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .font-btn {
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            color: #ffffff;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+
+        .font-btn:hover {
+            background: rgba(102, 126, 234, 0.3);
+            border-color: rgba(102, 126, 234, 0.6);
+        }
+
+        #font-size-display {
+            min-width: 50px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .reset-btn {
+            width: 100%;
+            padding: 12px;
+            background: rgba(220, 53, 69, 0.3);
+            border: 2px solid rgba(220, 53, 69, 0.6);
+            border-radius: 8px;
+            color: #ffffff;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .reset-btn:hover {
+            background: rgba(220, 53, 69, 0.5);
+            border-color: rgba(220, 53, 69, 0.8);
+        }
+
+        /* Leitura de Tela */
+        .screen-reader-controls {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+
+        .reader-status {
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .reader-status.active {
+            color: #28a745;
+            font-weight: 600;
+        }
+
+        .reader-hint {
+            font-size: 11px;
+            color: rgba(255, 255, 255, 0.5);
+            margin: 0 0 10px 0;
+            font-style: italic;
+        }
+
+        .reader-speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+            font-size: 13px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .reader-speed-control input[type="range"] {
+            flex: 1;
+            height: 6px;
+            -webkit-appearance: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        .reader-speed-control input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #667eea;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .stop-reading-btn {
+            width: 100%;
+            padding: 10px;
+            background: rgba(220, 53, 69, 0.3);
+            border: 1px solid rgba(220, 53, 69, 0.5);
+            border-radius: 8px;
+            color: #fff;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s ease;
+        }
+
+        .stop-reading-btn:hover {
+            background: rgba(220, 53, 69, 0.5);
+        }
+
+        /* Destaque de texto sendo lido */
+        .reading-highlight {
+            background: rgba(102, 126, 234, 0.3) !important;
+            outline: 2px solid #667eea !important;
+            border-radius: 4px;
+        }
+
+        /* Filtros de Daltonismo */
+        body.color-blind-protanopia {
+            filter: grayscale(0.3) sepia(0.5) hue-rotate(-50deg) saturate(1.2);
+        }
+
+        body.color-blind-deuteranopia {
+            filter: grayscale(0.2) sepia(0.4) hue-rotate(20deg) saturate(1.1);
+        }
+
+        body.color-blind-tritanopia {
+            filter: grayscale(0.1) sepia(0.6) hue-rotate(150deg) saturate(0.8);
+        }
+
+        body.high-contrast {
+            filter: contrast(1.5) brightness(1.1);
+        }
+
+        body.high-contrast * {
+            border-color: #ffffff !important;
+        }
+
+        body.high-contrast .form-input,
+        body.high-contrast .btn-primary {
+            border-width: 2px !important;
+        }
+
+        /* Responsivo */
+        @media (max-width: 768px) {
+            .accessibility-panel {
+                width: calc(100% - 40px);
+                right: 20px;
+                left: 20px;
+                bottom: 90px;
+            }
+
+            .accessibility-button {
+                bottom: 20px;
+                right: 20px;
+                width: 50px;
+                height: 50px;
+                font-size: 24px;
+            }
+        }
+    </style>
+
+    <script>
+        (function() {
+            function initAccessibility() {
+                const accessibilityBtn = document.getElementById('accessibility-btn');
+                const accessibilityPanel = document.getElementById('accessibility-panel');
+                const closeBtn = document.getElementById('close-accessibility');
+                const optionButtons = document.querySelectorAll('.option-btn');
+                const highContrastToggle = document.getElementById('high-contrast');
+                const fontDecrease = document.getElementById('font-decrease');
+                const fontIncrease = document.getElementById('font-increase');
+                const fontReset = document.getElementById('font-reset');
+                const fontSizeDisplay = document.getElementById('font-size-display');
+                const resetBtn = document.getElementById('reset-accessibility');
+
+                if (!accessibilityBtn || !accessibilityPanel) {
+                    console.error('Elementos de acessibilidade não encontrados!');
+                    return;
+                }
+
+                let currentFontSize = 100;
+                let currentMode = 'normal';
+                let highContrast = false;
+
+                function loadPreferences() {
+                    const savedMode = localStorage.getItem('accessibility-mode');
+                    const savedContrast = localStorage.getItem('accessibility-contrast');
+                    const savedFontSize = localStorage.getItem('accessibility-font-size');
+
+                    if (savedMode) {
+                        applyColorMode(savedMode);
+                        const btn = document.querySelector(`.option-btn[data-mode="${savedMode}"]`);
+                        if (btn) {
+                            optionButtons.forEach(b => b.classList.remove('active'));
+                            btn.classList.add('active');
+                        }
+                        currentMode = savedMode;
+                    } else {
+                        const normalBtn = document.querySelector('.option-btn[data-mode="normal"]');
+                        if (normalBtn) normalBtn.classList.add('active');
+                    }
+
+                    if (savedContrast === 'true' && highContrastToggle) {
+                        highContrastToggle.checked = true;
+                        document.body.classList.add('high-contrast');
+                        highContrast = true;
+                    }
+
+                    if (savedFontSize && fontSizeDisplay) {
+                        currentFontSize = parseInt(savedFontSize);
+                        applyFontSize(currentFontSize);
+                    }
+                }
+
+                function applyColorMode(mode) {
+                    document.body.classList.remove('color-blind-protanopia', 'color-blind-deuteranopia', 'color-blind-tritanopia');
+                    if (mode !== 'normal') {
+                        document.body.classList.add(`color-blind-${mode}`);
+                    }
+                    localStorage.setItem('accessibility-mode', mode);
+                }
+
+                function applyFontSize(size) {
+                    // Usar zoom para afetar todos os elementos (px e rem)
+                    const zoomLevel = size / 100;
+                    document.body.style.zoom = zoomLevel;
+                    // Fallback para Firefox que não suporta zoom
+                    document.body.style.MozTransform = 'scale(' + zoomLevel + ')';
+                    document.body.style.MozTransformOrigin = 'top left';
+                    if (zoomLevel !== 1) {
+                        document.body.style.width = (100 / zoomLevel) + '%';
+                    } else {
+                        document.body.style.width = '100%';
+                    }
+                    if (fontSizeDisplay) fontSizeDisplay.textContent = size + '%';
+                    localStorage.setItem('accessibility-font-size', size);
+                }
+
+                if (accessibilityBtn) {
+                    accessibilityBtn.addEventListener('click', function() {
+                        const isHidden = accessibilityPanel.style.display === 'none' || !accessibilityPanel.style.display;
+                        accessibilityPanel.style.display = isHidden ? 'block' : 'none';
+                    });
+                }
+
+                if (closeBtn) {
+                    closeBtn.addEventListener('click', function() {
+                        accessibilityPanel.style.display = 'none';
+                    });
+                }
+
+                document.addEventListener('click', function(event) {
+                    if (accessibilityPanel && accessibilityBtn) {
+                        if (!accessibilityPanel.contains(event.target) && 
+                            !accessibilityBtn.contains(event.target) && 
+                            accessibilityPanel.style.display === 'block') {
+                            accessibilityPanel.style.display = 'none';
+                        }
+                    }
+                });
+
+                optionButtons.forEach(btn => {
+                    btn.addEventListener('click', function() {
+                        optionButtons.forEach(b => b.classList.remove('active'));
+                        this.classList.add('active');
+                        const mode = this.getAttribute('data-mode');
+                        applyColorMode(mode);
+                        currentMode = mode;
+                    });
+                });
+
+                if (highContrastToggle) {
+                    highContrastToggle.addEventListener('change', function() {
+                        if (this.checked) {
+                            document.body.classList.add('high-contrast');
+                            localStorage.setItem('accessibility-contrast', 'true');
+                        } else {
+                            document.body.classList.remove('high-contrast');
+                            localStorage.setItem('accessibility-contrast', 'false');
+                        }
+                    });
+                }
+
+                if (fontIncrease) {
+                    fontIncrease.addEventListener('click', function() {
+                        currentFontSize = Math.min(currentFontSize + 10, 200);
+                        applyFontSize(currentFontSize);
+                    });
+                }
+
+                if (fontDecrease) {
+                    fontDecrease.addEventListener('click', function() {
+                        currentFontSize = Math.max(currentFontSize - 10, 80);
+                        applyFontSize(currentFontSize);
+                    });
+                }
+
+                if (fontReset) {
+                    fontReset.addEventListener('click', function() {
+                        currentFontSize = 100;
+                        applyFontSize(currentFontSize);
+                    });
+                }
+
+                if (resetBtn) {
+                    resetBtn.addEventListener('click', function() {
+                        document.body.classList.remove('color-blind-protanopia', 'color-blind-deuteranopia', 'color-blind-tritanopia', 'high-contrast');
+                        // Limpar zoom
+                        document.body.style.zoom = '1';
+                        document.body.style.MozTransform = 'scale(1)';
+                        document.body.style.width = '100%';
+                        if (highContrastToggle) highContrastToggle.checked = false;
+                        optionButtons.forEach(b => b.classList.remove('active'));
+                        const normalBtn = document.querySelector('.option-btn[data-mode="normal"]');
+                        if (normalBtn) normalBtn.classList.add('active');
+                        currentFontSize = 100;
+                        currentMode = 'normal';
+                        highContrast = false;
+                        applyFontSize(100);
+                        applyColorMode('normal');
+                        localStorage.removeItem('accessibility-mode');
+                        localStorage.removeItem('accessibility-contrast');
+                        localStorage.removeItem('accessibility-font-size');
+                        // Desativar leitura de tela
+                        if (screenReaderToggle) {
+                            screenReaderToggle.checked = false;
+                            disableScreenReader();
+                        }
+                        localStorage.removeItem('accessibility-screen-reader');
+                    });
+                }
+
+                // ========================================
+                // LEITURA DE TELA (Text-to-Speech)
+                // ========================================
+                const screenReaderToggle = document.getElementById('screen-reader-toggle');
+                const screenReaderStatus = document.getElementById('screen-reader-status');
+                const readerSpeedControl = document.getElementById('reader-speed-control');
+                const readerSpeed = document.getElementById('reader-speed');
+                const readerSpeedValue = document.getElementById('reader-speed-value');
+                const stopReadingBtn = document.getElementById('stop-reading');
+                
+                let screenReaderEnabled = false;
+                let currentUtterance = null;
+                let currentHighlight = null;
+                
+                // Verificar se o navegador suporta Text-to-Speech
+                const speechSupported = 'speechSynthesis' in window;
+                
+                function speak(text, element) {
+                    if (!speechSupported || !screenReaderEnabled) return;
+                    
+                    // Parar leitura anterior
+                    window.speechSynthesis.cancel();
+                    
+                    // Remover destaque anterior
+                    if (currentHighlight) {
+                        currentHighlight.classList.remove('reading-highlight');
+                    }
+                    
+                    // Criar nova fala
+                    currentUtterance = new SpeechSynthesisUtterance(text);
+                    currentUtterance.lang = 'pt-BR';
+                    currentUtterance.rate = parseFloat(readerSpeed ? readerSpeed.value : 1);
+                    
+                    // Destacar elemento sendo lido
+                    if (element) {
+                        element.classList.add('reading-highlight');
+                        currentHighlight = element;
+                    }
+                    
+                    // Mostrar botão de parar
+                    if (stopReadingBtn) stopReadingBtn.style.display = 'block';
+                    
+                    // Remover destaque quando terminar
+                    currentUtterance.onend = function() {
+                        if (currentHighlight) {
+                            currentHighlight.classList.remove('reading-highlight');
+                            currentHighlight = null;
+                        }
+                        if (stopReadingBtn) stopReadingBtn.style.display = 'none';
+                    };
+                    
+                    // Falar
+                    window.speechSynthesis.speak(currentUtterance);
+                }
+                
+                function handleTextClick(event) {
+                    if (!screenReaderEnabled) return;
+                    
+                    const target = event.target;
+                    const text = target.innerText || target.textContent;
+                    
+                    // Ignorar elementos vazios ou botões do painel de acessibilidade
+                    if (!text || text.trim().length === 0) return;
+                    if (target.closest('.accessibility-panel')) return;
+                    if (target.closest('.accessibility-button')) return;
+                    
+                    speak(text.trim(), target);
+                }
+                
+                function enableScreenReader() {
+                    screenReaderEnabled = true;
+                    document.body.style.cursor = 'pointer';
+                    document.addEventListener('click', handleTextClick);
+                    if (screenReaderStatus) {
+                        screenReaderStatus.textContent = 'Ativado';
+                        screenReaderStatus.classList.add('active');
+                    }
+                    if (readerSpeedControl) readerSpeedControl.style.display = 'flex';
+                    localStorage.setItem('accessibility-screen-reader', 'true');
+                    
+                    // Anunciar que está ativado
+                    speak('Leitura de tela ativada. Clique em qualquer texto para ouvir.');
+                }
+                
+                function disableScreenReader() {
+                    screenReaderEnabled = false;
+                    document.body.style.cursor = '';
+                    document.removeEventListener('click', handleTextClick);
+                    window.speechSynthesis.cancel();
+                    if (currentHighlight) {
+                        currentHighlight.classList.remove('reading-highlight');
+                        currentHighlight = null;
+                    }
+                    if (screenReaderStatus) {
+                        screenReaderStatus.textContent = 'Desativado';
+                        screenReaderStatus.classList.remove('active');
+                    }
+                    if (readerSpeedControl) readerSpeedControl.style.display = 'none';
+                    if (stopReadingBtn) stopReadingBtn.style.display = 'none';
+                    localStorage.setItem('accessibility-screen-reader', 'false');
+                }
+                
+                if (screenReaderToggle) {
+                    if (!speechSupported) {
+                        screenReaderToggle.disabled = true;
+                        if (screenReaderStatus) screenReaderStatus.textContent = 'Não suportado';
+                    } else {
+                        screenReaderToggle.addEventListener('change', function() {
+                            if (this.checked) {
+                                enableScreenReader();
+                            } else {
+                                disableScreenReader();
+                            }
+                        });
+                    }
+                }
+                
+                if (readerSpeed) {
+                    readerSpeed.addEventListener('input', function() {
+                        if (readerSpeedValue) readerSpeedValue.textContent = this.value + 'x';
+                    });
+                }
+                
+                if (stopReadingBtn) {
+                    stopReadingBtn.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        window.speechSynthesis.cancel();
+                        if (currentHighlight) {
+                            currentHighlight.classList.remove('reading-highlight');
+                            currentHighlight = null;
+                        }
+                        this.style.display = 'none';
+                    });
+                }
+                
+                // Carregar preferência de leitura de tela
+                function loadScreenReaderPreference() {
+                    const savedScreenReader = localStorage.getItem('accessibility-screen-reader');
+                    if (savedScreenReader === 'true' && screenReaderToggle && speechSupported) {
+                        screenReaderToggle.checked = true;
+                        enableScreenReader();
+                    }
+                }
+
+                loadPreferences();
+                loadScreenReaderPreference();
+            }
+
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', initAccessibility);
+            } else {
+                initAccessibility();
+            }
+        })();
+    </script>
+</body>
+</html>
+
+

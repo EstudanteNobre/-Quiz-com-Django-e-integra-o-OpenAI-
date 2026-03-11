@@ -1,0 +1,17 @@
+{% extends "quiz/base.html" %}
+
+{% block title %}Home - Info Quiz{% endblock %}
+
+{% block content %}
+<h2 class="welcome-title">Bem-vindo ao Info Quiz!</h2>
+<p class="welcome-subtitle">
+    Teste seus conhecimentos em Python, Redes, Banco de Dados, Inglês, 
+    Informática, Análise de Projeto e Algoritmos. 
+    Desafie-se e aprenda de forma divertida!
+</p>
+
+<div class="action-buttons">
+    <a href="{% url 'quiz:login' %}" class="btn-primary">Começar Agora</a>
+    <a href="{% url 'quiz:cadastro' %}" class="btn-secondary">Criar Conta</a>
+</div>
+{% endblock %}

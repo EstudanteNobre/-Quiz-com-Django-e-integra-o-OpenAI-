@@ -1,0 +1,133 @@
+{
+  "Python": {
+    "1": {
+      "facil": [
+        {
+          "texto": "Qual palavra-chave é usada para definir uma função em Python?",
+          "alternativa_a": "function",
+          "alternativa_b": "def",
+          "alternativa_c": "func",
+          "alternativa_d": "define",
+          "resposta_correta": "B"
+        },
+        {
+          "texto": "Qual é o operador de exponenciação em Python?",
+          "alternativa_a": "^",
+          "alternativa_b": "**",
+          "alternativa_c": "//",
+          "alternativa_d": "%",
+          "resposta_correta": "B"
+        },
+        {
+          "texto": "Qual tipo de dado é imutável em Python?",
+          "alternativa_a": "List",
+          "alternativa_b": "Dictionary",
+          "alternativa_c": "Tuple",
+          "alternativa_d": "Set",
+          "resposta_correta": "C"
+        },
+        {
+          "texto": "Qual função é usada para exibir dados na saída padrão (console)?",
+          "alternativa_a": "output()",
+          "alternativa_b": "display()",
+          "alternativa_c": "print()",
+          "alternativa_d": "show()",
+          "resposta_correta": "C"
+        },
+        {
+          "texto": "Qual é o resultado da expressão 3 + 4 * 2?",
+          "alternativa_a": "14",
+          "alternativa_b": "11",
+          "alternativa_c": "10",
+          "alternativa_d": "12",
+          "resposta_correta": "B"
+        }
+      ],
+      "medio": [
+        {
+          "texto": "Qual é a finalidade do método __init__ em uma classe Python?",
+          "alternativa_a": "Destruir um objeto",
+          "alternativa_b": "Inicializar os atributos de um objeto recém-criado",
+          "alternativa_c": "Definir métodos estáticos",
+          "alternativa_d": "Retornar o valor de um objeto",
+          "resposta_correta": "B"
+        },
+        {
+          "texto": "Qual módulo é comumente usado para trabalhar com expressões regulares em Python?",
+          "alternativa_a": "os",
+          "alternativa_b": "sys",
+          "alternativa_c": "re",
+          "alternativa_d": "math",
+          "resposta_correta": "C"
+        },
+        {
+          "texto": "O que o list comprehension faz em Python?",
+          "alternativa_a": "Cria uma tupla a partir de uma lista",
+          "alternativa_b": "Cria uma lista a partir de outra sequência de forma concisa",
+          "alternativa_c": "Compara duas listas",
+          "alternativa_d": "Remove elementos duplicados de uma lista",
+          "resposta_correta": "B"
+        },
+        {
+          "texto": "Qual é a saída do código: x = [1, 2, 3]; y = x; y.append(4); print(x)?",
+          "alternativa_a": "[1, 2, 3]",
+          "alternativa_b": "[1, 2, 3, 4]",
+          "alternativa_c": "Erro",
+          "alternativa_d": "None",
+          "resposta_correta": "B"
+        },
+        {
+          "texto": "Qual das seguintes opções NÃO é um tipo de dado em Python?",
+          "alternativa_a": "float",
+          "alternativa_b": "char",
+          "alternativa_c": "bool",
+          "alternativa_d": "str",
+          "resposta_correta": "B"
+        }
+      ],
+      "dificil": [
+        {
+          "texto": "O que é um 'decorator' em Python e qual é o seu símbolo?",
+          "alternativa_a": "Uma função que modifica o comportamento de uma classe, usando o símbolo #",
+          "alternativa_b": "Uma função que recebe outra função e estende ou modifica seu comportamento, usando o símbolo @",
+          "alternativa_c": "Um tipo de dado para anotações, usando o símbolo $",
+          "alternativa_d": "Uma variável global que armazena metadados, usando o símbolo &",
+          "resposta_correta": "B"
+        },
+        {
+          "texto": "Qual é a diferença entre range() e xrange() em Python 2, e qual é o equivalente em Python 3?",
+          "alternativa_a": "range() retorna um gerador; xrange() retorna uma lista. Em Python 3, range() é o equivalente a xrange().",
+          "alternativa_b": "range() retorna uma lista; xrange() retorna um gerador. Em Python 3, range() é o equivalente a xrange().",
+          "alternativa_c": "Ambos retornam listas. Em Python 3, xrange() foi removido.",
+          "alternativa_d": "Ambos retornam geradores. Em Python 3, range() foi renomeado para xrange().",
+          "resposta_correta": "B"
+        },
+        {
+          "texto": "O que significa GIL (Global Interpreter Lock) em Python?",
+          "alternativa_a": "Um mecanismo que permite que apenas um thread execute bytecode Python por vez, mesmo em sistemas multi-core.",
+          "alternativa_b": "Um bloqueio de recurso que impede que variáveis globais sejam modificadas por mais de um processo.",
+          "alternativa_c": "Uma função de segurança que bloqueia a execução de código não assinado.",
+          "alternativa_d": "Um recurso que permite a execução paralela de threads em sistemas multi-core.",
+          "resposta_correta": "A"
+        },
+        {
+          "texto": "Qual é a finalidade do método __slots__ em uma classe Python?",
+          "alternativa_a": "Definir métodos estáticos da classe.",
+          "alternativa_b": "Permitir a herança múltipla de classes.",
+          "alternativa_c": "Declarar explicitamente os atributos de dados (variáveis de instância) e evitar a criação de __dict__ para economizar memória.",
+          "alternativa_d": "Criar um dicionário de atributos de classe.",
+          "resposta_correta": "C"
+        },
+        {
+          "texto": "Em Python, o que é um 'generator' e qual palavra-chave está associada a ele?",
+          "alternativa_a": "Uma função que retorna um valor, usando a palavra-chave return.",
+          "alternativa_b": "Uma função que pode pausar e retomar sua execução, usando a palavra-chave yield.",
+          "alternativa_c": "Um tipo de dado para armazenar grandes quantidades de dados, usando a palavra-chave data.",
+          "alternativa_d": "Uma classe que implementa o protocolo de iteração, usando a palavra-chave iter.",
+          "resposta_correta": "B"
+        }
+      ]
+    }
+  }
+}
+

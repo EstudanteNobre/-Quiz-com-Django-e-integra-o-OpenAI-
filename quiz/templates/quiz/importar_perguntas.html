@@ -1,0 +1,123 @@
+{% extends "quiz/base.html" %}
+
+{% block title %}Importar Perguntas - Info Quiz{% endblock %}
+
+{% block content %}
+<div class="form-container" style="max-width: 900px; margin: 40px auto;">
+    <div class="form-header">
+        <div class="form-icon">📝</div>
+        <h2 class="form-title">Importar Perguntas</h2>
+        <p class="form-subtitle">Cole um texto completo com perguntas e respostas. O sistema organizará automaticamente.</p>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}" style="margin-bottom: 20px; padding: 15px; border-radius: 8px; background: {% if message.tags == 'success' %}rgba(40, 167, 69, 0.2){% elif message.tags == 'error' %}rgba(220, 53, 69, 0.2){% elif message.tags == 'warning' %}rgba(255, 193, 7, 0.2){% else %}rgba(23, 162, 184, 0.2){% endif %}; border: 2px solid {% if message.tags == 'success' %}#28a745{% elif message.tags == 'error' %}#dc3545{% elif message.tags == 'warning' %}#ffc107{% else %}#17a2b8{% endif %}; color: #ffffff; font-weight: {% if message.tags == 'error' %}bold{% else %}normal{% endif %};">
+                <strong>{% if message.tags == 'error' %}❌ ERRO: {% elif message.tags == 'success' %}✅ {% elif message.tags == 'warning' %}⚠️ {% endif %}</strong>{{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="POST" class="form">
+        {% csrf_token %}
+        
+        {% if form.non_field_errors %}
+            <div class="error-message">
+                {{ form.non_field_errors }}
+            </div>
+        {% endif %}
+
+        <div class="form-group">
+            <label for="{{ form.tema_personalizado.id_for_label }}" class="form-label">
+                {{ form.tema_personalizado.label }}
+            </label>
+            {{ form.tema_personalizado }}
+            {% if form.tema_personalizado.errors %}
+                <div class="field-error">{{ form.tema_personalizado.errors }}</div>
+            {% endif %}
+            {% if form.tema_personalizado.help_text %}
+                <small class="form-help">{{ form.tema_personalizado.help_text }}</small>
+            {% endif %}
+        </div>
+
+        <div class="form-group">
+            <label for="{{ form.texto_perguntas.id_for_label }}" class="form-label">
+                {{ form.texto_perguntas.label }}
+            </label>
+            {{ form.texto_perguntas }}
+            {% if form.texto_perguntas.errors %}
+                <div class="field-error">{{ form.texto_perguntas.errors }}</div>
+            {% endif %}
+            {% if form.texto_perguntas.help_text %}
+                <small class="form-help">{{ form.texto_perguntas.help_text }}</small>
+            {% endif %}
+        </div>
+
+        <div style="background: rgba(102, 126, 234, 0.1); border: 2px solid rgba(102, 126, 234, 0.3); border-radius: 12px; padding: 20px; margin: 20px 0;">
+            <h3 style="color: #ffffff; margin-top: 0; font-size: 18px;">📋 Formato Esperado:</h3>
+            <div style="background: rgba(26, 26, 46, 0.8); padding: 15px; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 14px; color: #a0a0a0; white-space: pre-wrap; line-height: 1.6;">
+1. Qual é a capital do Brasil?
+a) São Paulo
+b) Rio de Janeiro
+c) Brasília
+d) Belo Horizonte
+Resposta: C
+
+2. Quantos estados tem o Brasil?
+a) 25 estados
+b) 26 estados
+c) 27 estados
+d) 28 estados
+Resposta: B
+
+3. Qual é o maior oceano do mundo?
+a) Atlântico
+b) Índico
+c) Pacífico
+d) Ártico
+Resposta: C
+            </div>
+            <p style="color: #ffffff; margin-top: 15px; font-size: 14px; opacity: 0.9;">
+                <strong>Dicas:</strong><br>
+                • Use números (1., 2., 3.) ou "Pergunta 1:", "Q1:" para identificar perguntas<br>
+                • Use letras minúsculas ou maiúsculas (a), b), c), d) ou A), B), C), D))<br>
+                • Indique a resposta correta com "Resposta:", "Gabarito:" ou "Resposta correta:" seguido da letra (A, B, C ou D)<br>
+                • Cada pergunta deve ter exatamente 4 alternativas (A, B, C, D)
+            </p>
+        </div>
+
+        <div style="display: flex; gap: 15px; margin-top: 30px;">
+            <button type="submit" class="btn-primary btn-submit" style="flex: 1;">
+                📥 Importar Perguntas
+            </button>
+            <a href="{% url 'quiz:dashboard' %}" class="btn-secondary" style="flex: 0 0 auto; padding: 12px 24px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">
+                ← Voltar
+            </a>
+        </div>
+    </form>
+</div>
+
+<style>
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+}
+
+.form-group textarea {
+    min-height: 300px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+}
+</style>
+{% endblock %}
+

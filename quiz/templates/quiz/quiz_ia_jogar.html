@@ -1,0 +1,878 @@
+{% extends "quiz/base.html" %}
+
+{% block title %}Quiz IA - {{ tema }}{% endblock %}
+
+{% block extra_js %}
+<script>
+// Desabilitar auto-logout para esta página
+window.__infoQuizAutoLogoutDispatched = true;
+
+// ==================== EFEITOS SONOROS ====================
+// Função para criar efeitos sonoros usando Web Audio API
+function playCountdownSound(type, number) {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        if (type === 'number') {
+            // Som para números (3, 2, 1) - frequências diferentes para cada número
+            const frequencies = { 3: 330, 2: 392, 1: 494 }; // E4, G4, B4
+            const freq = frequencies[number] || 440;
+            
+            oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+            oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.35, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.4);
+        } else if (type === 'ready') {
+            // Som para "PRONTO!" - acorde ascendente animado
+            const now = audioContext.currentTime;
+            const osc1 = audioContext.createOscillator();
+            const osc2 = audioContext.createOscillator();
+            const osc3 = audioContext.createOscillator();
+            const gain1 = audioContext.createGain();
+            const gain2 = audioContext.createGain();
+            const gain3 = audioContext.createGain();
+            
+            // Três notas em sequência (C5, E5, G5)
+            osc1.frequency.setValueAtTime(523.25, now); // C5
+            osc1.type = 'sine';
+            gain1.gain.setValueAtTime(0.3, now);
+            gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+            osc1.connect(gain1);
+            gain1.connect(audioContext.destination);
+            osc1.start(now);
+            osc1.stop(now + 0.2);
+            
+            osc2.frequency.setValueAtTime(659.25, now + 0.1); // E5
+            osc2.type = 'sine';
+            gain2.gain.setValueAtTime(0.3, now + 0.1);
+            gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+            osc2.connect(gain2);
+            gain2.connect(audioContext.destination);
+            osc2.start(now + 0.1);
+            osc2.stop(now + 0.3);
+            
+            osc3.frequency.setValueAtTime(783.99, now + 0.2); // G5
+            osc3.type = 'sine';
+            gain3.gain.setValueAtTime(0.4, now + 0.2);
+            gain3.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+            osc3.connect(gain3);
+            gain3.connect(audioContext.destination);
+            osc3.start(now + 0.2);
+            osc3.stop(now + 0.6);
+        }
+    } catch (e) {
+        console.log('Erro ao tocar som:', e);
+    }
+}
+
+// Função para som de acerto
+function playCorrectSound() {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const now = audioContext.currentTime;
+        
+        // Acorde de sucesso (C5, E5, G5 simultâneos)
+        const osc1 = audioContext.createOscillator();
+        const osc2 = audioContext.createOscillator();
+        const osc3 = audioContext.createOscillator();
+        const gain1 = audioContext.createGain();
+        const gain2 = audioContext.createGain();
+        const gain3 = audioContext.createGain();
+        
+        [osc1, osc2, osc3].forEach((osc, i) => {
+            const freqs = [523.25, 659.25, 783.99]; // C5, E5, G5
+            osc.frequency.setValueAtTime(freqs[i], now);
+            osc.type = 'sine';
+            const gain = [gain1, gain2, gain3][i];
+            gain.gain.setValueAtTime(0.25, now);
+            gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            osc.start(now);
+            osc.stop(now + 0.5);
+        });
+    } catch (e) {
+        console.log('Erro ao tocar som de acerto:', e);
+    }
+}
+
+// Função para som de erro
+function playWrongSound() {
+    try {
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const now = audioContext.currentTime;
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        // Tom descendente (D4 para A3) - som de erro
+        oscillator.frequency.setValueAtTime(293.66, now); // D4
+        oscillator.frequency.exponentialRampToValueAtTime(220.00, now + 0.3); // A3
+        oscillator.type = 'sawtooth';
+        gainNode.gain.setValueAtTime(0.3, now);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+        oscillator.start(now);
+        oscillator.stop(now + 0.4);
+    } catch (e) {
+        console.log('Erro ao tocar som de erro:', e);
+    }
+}
+
+// Parar música de fundo quando começar o countdown
+function stopBackgroundMusic() {
+    // Parar música da página de escolher tema
+    const musicFromPreviousPage = document.getElementById('quiz-ia-music');
+    if (musicFromPreviousPage) {
+        musicFromPreviousPage.pause();
+        musicFromPreviousPage.currentTime = 0;
+    }
+    
+    // Parar música do base.html se estiver tocando
+    const baseMusic = document.getElementById('background-music');
+    if (baseMusic) {
+        baseMusic.pause();
+        baseMusic.currentTime = 0;
+    }
+}
+
+// Contagem Regressiva
+document.addEventListener('DOMContentLoaded', function() {
+    // Parar música imediatamente quando a página carregar
+    stopBackgroundMusic();
+    
+    const overlay = document.getElementById('countdown-overlay');
+    const numberEl = document.getElementById('countdown-number');
+    const textEl = document.querySelector('.countdown-text');
+    const iconEl = document.querySelector('.countdown-icon');
+    
+    // ==================== FEEDBACK SONORO ====================
+    // Tocar som baseado no tipo de feedback
+    const feedbackBox = document.querySelector('.feedback-box');
+    if (feedbackBox) {
+        // Verificar se contém 'success' na classe (feedback-success)
+        if (feedbackBox.className.includes('success')) {
+            playCorrectSound();
+        } else if (feedbackBox.className.includes('error')) {
+            playWrongSound();
+        }
+    }
+    
+    // Verificar se já passou pela contagem (para não repetir em cada pergunta)
+    const sessionKey = 'quiz_ia_countdown_done_{{ request.session.session_key|default:"default" }}';
+    if (sessionStorage.getItem(sessionKey)) {
+        if (overlay) {
+            overlay.classList.remove('active');
+            overlay.style.display = 'none';
+        }
+        // Mesmo sem countdown, verificar feedback
+        return;
+    }
+    
+    if (!overlay || !numberEl) return;
+    
+    let count = 3;
+    const icons = ['🎯', '🧠', '⚡'];
+    
+    function updateCountdown() {
+        if (count > 0) {
+            numberEl.textContent = count;
+            numberEl.style.animation = 'none';
+            numberEl.offsetHeight; // Trigger reflow
+            numberEl.style.animation = 'number-pop 0.3s ease-out';
+            
+            iconEl.textContent = icons[3 - count];
+            textEl.textContent = count === 3 ? 'Prepare-se!' : count === 2 ? 'Atenção!' : 'Já vai!';
+            
+            // Tocar efeito sonoro para cada número
+            playCountdownSound('number', count);
+            
+            count--;
+            setTimeout(updateCountdown, 1000);
+        } else {
+            // Mostrar "PRONTO!"
+            numberEl.textContent = 'PRONTO!';
+            numberEl.classList.add('ready');
+            iconEl.textContent = '🚀';
+            textEl.textContent = 'Boa sorte!';
+            
+            // Tocar efeito sonoro especial para "PRONTO!"
+            playCountdownSound('ready');
+            
+            // Marcar como concluído
+            sessionStorage.setItem(sessionKey, 'true');
+            
+            // Esconder overlay após 800ms
+            setTimeout(function() {
+                overlay.classList.add('fade-out');
+                setTimeout(function() {
+                    overlay.style.display = 'none';
+                }, 500);
+            }, 800);
+        }
+    }
+    
+    // Iniciar contagem após um pequeno delay
+    setTimeout(updateCountdown, 500);
+});
+</script>
+{% endblock %}
+
+{% block content %}
+<!-- Overlay de Contagem Regressiva -->
+<div id="countdown-overlay" class="countdown-overlay active">
+    <div class="countdown-content">
+        <div class="countdown-icon">🎯</div>
+        <div id="countdown-number" class="countdown-number">3</div>
+        <p class="countdown-text">Prepare-se!</p>
+    </div>
+</div>
+
+<div class="quiz-ia-play-container">
+    <!-- Cabeçalho do Quiz -->
+    <div class="quiz-play-header">
+        <div class="quiz-info-row">
+            <div class="quiz-tema">
+                <span class="ia-badge-small">🤖 IA</span>
+                <h2>{{ tema }}</h2>
+            </div>
+            <div class="quiz-stats">
+                <!-- Cronômetro -->
+                <div class="stat-item timer-item">
+                    <span class="stat-label">Tempo</span>
+                    <span class="stat-value timer-display" id="quiz-timer">
+                        <span class="timer-icon">⏱️</span>
+                        <span class="timer-value" id="timer-seconds">0s</span>
+                    </span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Pontos</span>
+                    <span class="stat-value">{{ pontuacao }}</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Acertos</span>
+                    <span class="stat-value">{{ corretas }}/{{ total_respondidas }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Barra de Progresso -->
+        <div class="progress-section">
+            <div class="progress-info">
+                <span>Pergunta {{ numero_pergunta_atual }} de {{ total_perguntas }}</span>
+                <span class="nivel-badge nivel-{{ nivel_atual }}">{{ nivel_label }}</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ progresso_percentual }}%"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feedback -->
+    {% if feedback %}
+    <div class="feedback-box feedback-{{ feedback_tipo }}">
+        <p>{{ feedback }}</p>
+        {% if resposta_correta %}
+        <p class="resposta-certa">A resposta correta era: <strong>{{ resposta_correta }}</strong></p>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Pergunta -->
+    {% if pergunta %}
+    <div class="question-card">
+        <div class="question-number">Pergunta {{ numero_pergunta_atual }}</div>
+        <p class="question-text">{{ pergunta.texto }}</p>
+        
+        <form method="post" class="quiz-form answers-form">
+            {% csrf_token %}
+            <input type="hidden" name="pergunta_idx" value="{{ pergunta_idx }}">
+            <input type="hidden" name="nivel_pergunta" value="{{ nivel_atual }}">
+            
+            <div class="quiz-options">
+                <label class="quiz-option">
+                    <input type="radio" name="resposta" value="A" required>
+                    <span class="option-circle"></span>
+                    <span class="option-letter">A</span>
+                    <span class="option-text">{{ pergunta.alternativa_a }}</span>
+                </label>
+                
+                <label class="quiz-option">
+                    <input type="radio" name="resposta" value="B" required>
+                    <span class="option-circle"></span>
+                    <span class="option-letter">B</span>
+                    <span class="option-text">{{ pergunta.alternativa_b }}</span>
+                </label>
+                
+                <label class="quiz-option">
+                    <input type="radio" name="resposta" value="C" required>
+                    <span class="option-circle"></span>
+                    <span class="option-letter">C</span>
+                    <span class="option-text">{{ pergunta.alternativa_c }}</span>
+                </label>
+                
+                <label class="quiz-option">
+                    <input type="radio" name="resposta" value="D" required>
+                    <span class="option-circle"></span>
+                    <span class="option-letter">D</span>
+                    <span class="option-text">{{ pergunta.alternativa_d }}</span>
+                </label>
+            </div>
+            
+            <div class="quiz-action-buttons">
+                <button type="submit" class="btn-primary btn-answer">Responder</button>
+            </div>
+        </form>
+    </div>
+    {% else %}
+    <div class="no-question-card">
+        <p>Quiz finalizado! Redirecionando para o resultado...</p>
+        <script>
+            setTimeout(function() {
+                window.location.href = "{% url 'quiz:quiz_ia_resultado' %}";
+            }, 1500);
+        </script>
+    </div>
+    {% endif %}
+
+    <!-- Níveis de Dificuldade -->
+    <div class="difficulty-tracker">
+        <div class="difficulty-item {% if nivel_atual == 'facil' %}active{% endif %} {% if 'facil' in completed_levels %}completed{% endif %}">
+            <span class="diff-icon">🟢</span>
+            <span class="diff-name">Fácil</span>
+        </div>
+        <div class="difficulty-item {% if nivel_atual == 'medio' %}active{% endif %} {% if 'medio' in completed_levels %}completed{% endif %}">
+            <span class="diff-icon">🟡</span>
+            <span class="diff-name">Médio</span>
+        </div>
+        <div class="difficulty-item {% if nivel_atual == 'dificil' %}active{% endif %} {% if 'dificil' in completed_levels %}completed{% endif %}">
+            <span class="diff-icon">🔴</span>
+            <span class="diff-name">Difícil</span>
+        </div>
+    </div>
+    
+    <!-- Dica de Pontuação por Tempo -->
+    <div class="time-scoring-hint">
+        <span class="hint-icon">💡</span>
+        <span class="hint-text">Responda rápido! Até 15s = 100% | 15-30s = 80% | 30-45s = 60% | 45s+ = menos pontos</span>
+    </div>
+</div>
+
+<!-- Botão Sair Flutuante -->
+<a href="{% url 'quiz:dashboard' %}" class="floating-exit-button">Sair</a>
+
+<style>
+/* ==================== */
+/* CONTAGEM REGRESSIVA */
+/* ==================== */
+.countdown-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 10, 30, 0.98);
+    backdrop-filter: blur(15px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.5s ease;
+}
+
+.countdown-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.countdown-overlay.fade-out {
+    opacity: 0;
+    visibility: hidden;
+}
+
+.countdown-content {
+    text-align: center;
+}
+
+.countdown-icon {
+    font-size: 60px;
+    margin-bottom: 20px;
+    animation: icon-pulse 0.5s ease-in-out infinite alternate;
+}
+
+@keyframes icon-pulse {
+    from { transform: scale(1); }
+    to { transform: scale(1.1); }
+}
+
+.countdown-number {
+    font-size: 180px;
+    font-weight: 900;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 0 80px rgba(102, 126, 234, 0.5);
+    animation: number-pop 0.3s ease-out;
+    line-height: 1;
+    margin-bottom: 20px;
+}
+
+@keyframes number-pop {
+    0% { transform: scale(0.5); opacity: 0; }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.countdown-number.ready {
+    font-size: 80px;
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: ready-pop 0.5s ease-out;
+}
+
+@keyframes ready-pop {
+    0% { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+    50% { transform: scale(1.3) rotate(5deg); }
+    100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.countdown-text {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.5rem;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+}
+
+/* Botão Sair Flutuante */
+.floating-exit-button {
+    position: fixed;
+    bottom: 32px;
+    right: 110px;
+    padding: 14px 34px;
+    border-radius: 999px;
+    background: rgba(69, 36, 93, 0.75);
+    border: 1px solid rgba(255, 102, 161, 0.85);
+    color: #ff9ad0;
+    font-weight: 600;
+    font-size: 16px;
+    letter-spacing: 0.5px;
+    text-decoration: none;
+    box-shadow: 0 14px 30px rgba(18, 26, 60, 0.45);
+    transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, color 0.25s ease;
+    z-index: 60;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 110px;
+}
+
+.floating-exit-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 36px rgba(18, 26, 60, 0.55);
+    background: rgba(80, 42, 110, 0.85);
+    border-color: rgba(255, 136, 189, 0.9);
+    color: #ffc6e6;
+}
+
+@media (max-width: 768px) {
+    .floating-exit-button {
+        bottom: 20px;
+        right: 90px;
+        padding: 12px 26px;
+        font-size: 15px;
+    }
+}
+
+.quiz-ia-play-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* Cabeçalho */
+.quiz-play-header {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 25px;
+    margin-bottom: 25px;
+}
+
+.quiz-info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.quiz-tema {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.quiz-tema h2 {
+    color: #fff;
+    font-size: 1.5rem;
+    margin: 0;
+}
+
+.ia-badge-small {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 5px 10px;
+    border-radius: 15px;
+    font-size: 12px;
+    color: #fff;
+}
+
+.quiz-stats {
+    display: flex;
+    gap: 20px;
+}
+
+.stat-item {
+    text-align: center;
+}
+
+.stat-label {
+    display: block;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 12px;
+    margin-bottom: 3px;
+}
+
+.stat-value {
+    display: block;
+    color: #fff;
+    font-size: 20px;
+    font-weight: bold;
+}
+
+/* Barra de Progresso */
+.progress-section {
+    margin-top: 15px;
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+}
+
+.nivel-badge {
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.nivel-badge.nivel-facil {
+    background: rgba(40, 167, 69, 0.3);
+    color: #28a745;
+}
+
+.nivel-badge.nivel-medio {
+    background: rgba(255, 193, 7, 0.3);
+    color: #ffc107;
+}
+
+.nivel-badge.nivel-dificil {
+    background: rgba(220, 53, 69, 0.3);
+    color: #dc3545;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+/* Feedback */
+.feedback-box {
+    padding: 15px 20px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.feedback-box p {
+    margin: 0;
+    font-size: 16px;
+}
+
+.feedback-success {
+    background: rgba(40, 167, 69, 0.2);
+    border: 1px solid rgba(40, 167, 69, 0.4);
+    color: #28a745;
+}
+
+.feedback-error {
+    background: rgba(220, 53, 69, 0.2);
+    border: 1px solid rgba(220, 53, 69, 0.4);
+    color: #dc3545;
+}
+
+.resposta-certa {
+    margin-top: 10px !important;
+    font-size: 14px !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Card da Pergunta */
+.question-card {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    padding: 30px;
+    margin-bottom: 25px;
+}
+
+.question-number {
+    color: #667eea;
+    font-size: 14px;
+    font-weight: 600;
+    margin-bottom: 15px;
+}
+
+.question-text {
+    color: #fff;
+    font-size: 1.25rem;
+    line-height: 1.6;
+    margin-bottom: 25px;
+}
+
+/* Respostas - Usando os mesmos estilos do quiz normal */
+.answers-form {
+    width: 100%;
+}
+
+/* Tracker de Dificuldade */
+.difficulty-tracker {
+    display: flex;
+    justify-content: center;
+    gap: 30px;
+    padding: 20px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 15px;
+}
+
+.difficulty-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    opacity: 0.5;
+    transition: all 0.3s ease;
+}
+
+.difficulty-item.active {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.difficulty-item.completed {
+    opacity: 0.7;
+}
+
+.diff-icon {
+    font-size: 24px;
+}
+
+.diff-name {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 13px;
+}
+
+/* Dica de Pontuação por Tempo */
+.time-scoring-hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 20px;
+    padding: 12px 20px;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+    border: 1px solid rgba(102, 126, 234, 0.3);
+    border-radius: 12px;
+}
+
+.hint-icon {
+    font-size: 18px;
+}
+
+.hint-text {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 13px;
+    font-weight: 500;
+}
+
+/* No Question */
+.no-question-card {
+    text-align: center;
+    padding: 50px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 20px;
+    color: #fff;
+}
+
+/* Responsivo */
+@media (max-width: 600px) {
+    .quiz-info-row {
+        flex-direction: column;
+        text-align: center;
+    }
+    
+    .quiz-tema {
+        flex-direction: column;
+    }
+    
+    .quiz-tema h2 {
+        font-size: 1.2rem;
+    }
+    
+    .question-text {
+        font-size: 1.1rem;
+    }
+    
+    .difficulty-tracker {
+        gap: 15px;
+    }
+}
+
+/* ==================== */
+/* CRONÔMETRO */
+/* ==================== */
+.timer-item {
+    min-width: 90px;
+}
+
+.timer-display {
+    display: flex !important;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.timer-icon {
+    font-size: 16px;
+}
+
+.timer-value {
+    font-weight: 700;
+    font-size: 16px;
+    min-width: 35px;
+    text-align: center;
+}
+
+/* Estado Normal (0-14s) - Verde */
+.timer-normal {
+    background: rgba(40, 167, 69, 0.2);
+    border: 1px solid rgba(40, 167, 69, 0.4);
+    color: #28a745;
+}
+
+/* Estado Alerta (15-29s) - Amarelo/Laranja */
+.timer-warning {
+    background: rgba(255, 193, 7, 0.25);
+    border: 1px solid rgba(255, 193, 7, 0.5);
+    color: #ffc107;
+    animation: pulse-warning 1s ease-in-out infinite;
+}
+
+/* Estado Crítico (30s+) - Vermelho */
+.timer-danger {
+    background: rgba(220, 53, 69, 0.3);
+    border: 1px solid rgba(220, 53, 69, 0.6);
+    color: #ff4757;
+    animation: pulse-danger 0.5s ease-in-out infinite;
+}
+
+@keyframes pulse-warning {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+@keyframes pulse-danger {
+    0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
+    50% { transform: scale(1.08); box-shadow: 0 0 15px rgba(220, 53, 69, 0.6); }
+}
+</style>
+
+<!-- Script do Cronômetro -->
+<script>
+(function() {
+    let seconds = 0;
+    let timerInterval = null;
+    const timerDisplay = document.getElementById('quiz-timer');
+    const timerValue = document.getElementById('timer-seconds');
+    
+    if (!timerDisplay || !timerValue) return;
+    
+    function updateTimer() {
+        seconds++;
+        timerValue.textContent = seconds + 's';
+        
+        // Remover classes anteriores
+        timerDisplay.classList.remove('timer-normal', 'timer-warning', 'timer-danger');
+        
+        // Aplicar classe baseada no tempo
+        if (seconds >= 30) {
+            timerDisplay.classList.add('timer-danger');
+        } else if (seconds >= 15) {
+            timerDisplay.classList.add('timer-warning');
+        } else {
+            timerDisplay.classList.add('timer-normal');
+        }
+    }
+    
+    // Iniciar cronômetro
+    timerDisplay.classList.add('timer-normal');
+    timerInterval = setInterval(updateTimer, 1000);
+    
+    // Parar cronômetro quando o formulário for enviado
+    // Pausar timer ao enviar resposta
+    const quizForm = document.querySelector('.answers-form');
+    if (quizForm) {
+        const submitButton = quizForm.querySelector('.btn-answer');
+        if (submitButton) {
+            submitButton.addEventListener('click', function() {
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                }
+            });
+        }
+    }
+})();
+</script>
+{% endblock %}
+

@@ -1,0 +1,88 @@
+{% extends "quiz/base.html" %}
+{% load static %}
+
+{% block title %}Entrar na Sala - Info Quiz{% endblock %}
+
+{% block content %}
+<div class="form-container" style="max-width: 600px; margin: 40px auto;">
+    <div class="form-header">
+        <div class="form-icon">🚪</div>
+        <h2 class="form-title">Entrar na Sala</h2>
+        <p class="form-subtitle">Digite o PIN fornecido pelo seu professor para acessar o quiz personalizado.</p>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}" style="margin-bottom: 20px; padding: 15px; border-radius: 8px; background: {% if message.tags == 'success' %}rgba(40, 167, 69, 0.2){% elif message.tags == 'error' %}rgba(220, 53, 69, 0.2){% elif message.tags == 'warning' %}rgba(255, 193, 7, 0.2){% else %}rgba(23, 162, 184, 0.2){% endif %}; border: 2px solid {% if message.tags == 'success' %}#28a745{% elif message.tags == 'error' %}#dc3545{% elif message.tags == 'warning' %}#ffc107{% else %}#17a2b8{% endif %}; color: #ffffff;">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <form method="POST" class="form">
+        {% csrf_token %}
+        
+        <div class="form-group">
+            <label for="pin" class="form-label">
+                PIN da Sala
+            </label>
+            <input 
+                type="text" 
+                id="pin" 
+                name="pin" 
+                class="form-input" 
+                placeholder="Digite o PIN de 6 dígitos"
+                maxlength="6"
+                pattern="[0-9]{6}"
+                required
+                autocomplete="off"
+                style="text-align: center; font-size: 24px; letter-spacing: 4px; font-family: 'Courier New', monospace; font-weight: 600;"
+            >
+            <small class="form-help">O PIN é um código de 6 dígitos fornecido pelo seu professor.</small>
+        </div>
+
+        <div style="display: flex; gap: 15px; margin-top: 30px;">
+            <button type="submit" class="btn-primary btn-submit" style="flex: 1;">
+                🚪 Entrar na Sala
+            </button>
+            <a href="{% url 'quiz:dashboard' %}" class="btn-secondary" style="flex: 0 0 auto; padding: 12px 24px; text-decoration: none; display: inline-flex; align-items: center; justify-content: center;">
+                ← Voltar
+            </a>
+        </div>
+    </form>
+</div>
+
+<script>
+// Formatar PIN enquanto digita
+document.getElementById('pin').addEventListener('input', function(e) {
+    // Remove caracteres não numéricos
+    this.value = this.value.replace(/[^0-9]/g, '');
+    // Limita a 6 dígitos
+    if (this.value.length > 6) {
+        this.value = this.value.slice(0, 6);
+    }
+});
+
+// Focar no campo PIN ao carregar a página
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('pin').focus();
+});
+</script>
+
+<style>
+.btn-secondary {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: #ffffff;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.5);
+    transform: translateY(-2px);
+}
+</style>
+{% endblock %}
+

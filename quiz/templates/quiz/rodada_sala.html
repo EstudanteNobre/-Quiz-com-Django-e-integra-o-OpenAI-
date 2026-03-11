@@ -1,0 +1,603 @@
+{% extends "quiz/base.html" %}
+{% load static %}
+
+{% block title %}{{ sala.tema_personalizado }} - Info Quiz{% endblock %}
+
+{% block content %}
+<!-- Overlay de Contagem Regressiva -->
+<div id="countdown-overlay" class="countdown-overlay active">
+    <div class="countdown-content">
+        <div class="countdown-icon">🎯</div>
+        <div id="countdown-number" class="countdown-number">3</div>
+        <p class="countdown-text">Prepare-se!</p>
+    </div>
+</div>
+
+<div class="quiz-play-container">
+    <div class="quiz-top">
+        <div class="quiz-top-left">
+            <div class="quiz-heading">
+                <div class="quiz-heading-icon">🎯</div>
+                <div class="quiz-heading-info">
+                    <span class="quiz-heading-title">{{ sala.tema_personalizado }}</span>
+                    <span class="quiz-heading-subtitle">Sala: {{ sala.pin }}</span>
+                </div>
+            </div>
+            <!-- Cronômetro -->
+            <div class="quiz-timer-box" id="quiz-timer">
+                <span class="timer-icon">⏱️</span>
+                <span class="timer-value" id="timer-seconds">0s</span>
+            </div>
+            <div class="quiz-user-info">
+                <div class="quiz-user-avatar">👤</div>
+                <div class="quiz-user-details">
+                    <span class="label">Jogador</span>
+                    <span class="value">{{ request.user.first_name|default:request.user.username }}</span>
+                </div>
+            </div>
+        </div>
+        <div class="quiz-progress-card">
+            <div class="progress-top">
+                <span>{{ respondidas_total }}/{{ total_perguntas }} questões</span>
+                <span>Pontuação: {{ pontuacao_total }}</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-bar-fill" style="--fill-width: {{ progresso_percentual }}%;"></div>
+            </div>
+            <div class="progress-bottom">
+                <span>Corretas: {{ progresso.perguntas_corretas }}/{{ respondidas_total }}</span>
+                <span>Pontos: {{ pontuacao_total }}</span>
+            </div>
+        </div>
+    </div>
+
+    {% if quiz_completo %}
+    <div class="quiz-finish-card">
+        <h2 class="finish-title">Quiz concluído! 🎉</h2>
+        <p class="finish-subtitle">
+            Você completou todas as perguntas da sala <strong>{{ sala.tema_personalizado }}</strong>.<br>
+            Pontuação total: <strong>{{ pontuacao_total }}</strong> pontos.<br>
+            Acertos: <strong>{{ progresso.perguntas_corretas }}</strong> de <strong>{{ total_perguntas }}</strong> perguntas.
+        </p>
+        <div class="finish-actions">
+            <a href="{% url 'quiz:dashboard' %}" class="btn-primary">Voltar ao dashboard</a>
+            <a href="{% url 'quiz:entrar_sala' %}" class="btn-secondary">Entrar em outra sala</a>
+        </div>
+    </div>
+    {% else %}
+    {% if feedback %}
+    <div class="quiz-feedback quiz-feedback-{{ feedback_tipo }}" id="quiz-feedback">
+        <strong>{{ feedback }}</strong>
+        {% if resposta_correta and feedback_tipo == 'error' %}
+            <span class="feedback-detail">A alternativa correta era <strong>{{ resposta_correta }}</strong>.</span>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    {% if pergunta %}
+    <div class="quiz-question-card">
+        <div class="question-counter">Pergunta {{ numero_pergunta_atual }} de {{ total_perguntas }}</div>
+        <h2 class="question-text">{{ pergunta.texto }}</h2>
+        <form method="post" class="quiz-form">
+            {% csrf_token %}
+            <input type="hidden" name="pergunta_id" value="{{ pergunta.id }}">
+            <div class="quiz-options">
+                <label class="quiz-option">
+                    <input type="radio" name="resposta" value="A" required>
+                    <span class="option-circle"></span>
+                    <span class="option-letter">A</span>
+                    <span class="option-text">{{ pergunta.alternativa_a }}</span>
+                </label>
+                <label class="quiz-option">
+                    <input type="radio" name="resposta" value="B" required>
+                    <span class="option-circle"></span>
+                    <span class="option-letter">B</span>
+                    <span class="option-text">{{ pergunta.alternativa_b }}</span>
+                </label>
+                <label class="quiz-option">
+                    <input type="radio" name="resposta" value="C" required>
+                    <span class="option-circle"></span>
+                    <span class="option-letter">C</span>
+                    <span class="option-text">{{ pergunta.alternativa_c }}</span>
+                </label>
+                <label class="quiz-option">
+                    <input type="radio" name="resposta" value="D" required>
+                    <span class="option-circle"></span>
+                    <span class="option-letter">D</span>
+                    <span class="option-text">{{ pergunta.alternativa_d }}</span>
+                </label>
+            </div>
+            <div class="quiz-action-buttons">
+                <button type="submit" class="btn-primary btn-answer">Responder</button>
+            </div>
+        </form>
+        
+        <!-- Dica de Pontuação por Tempo -->
+        <div class="time-scoring-hint">
+            <span class="hint-icon">💡</span>
+            <span class="hint-text">Responda rápido! Até 15s = 100% | 15-30s = 80% | 30-45s = 60% | 45s+ = menos pontos</span>
+        </div>
+    </div>
+    {% else %}
+    <div class="quiz-finish-card">
+        <h2 class="finish-title">Sem perguntas disponíveis 😅</h2>
+        <p class="finish-subtitle">
+            Não encontramos mais perguntas para esta sala.
+        </p>
+        <div class="finish-actions">
+            <a href="{% url 'quiz:dashboard' %}" class="btn-primary">Voltar ao dashboard</a>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+<a href="{% url 'quiz:dashboard' %}" class="floating-exit-button" id="quiz-exit-button">Sair</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* ==================== */
+    /* CONTAGEM REGRESSIVA */
+    /* ==================== */
+    .countdown-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(10, 10, 30, 0.98);
+        backdrop-filter: blur(15px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 99999;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.5s ease;
+    }
+
+    .countdown-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .countdown-overlay.fade-out {
+        opacity: 0;
+        visibility: hidden;
+    }
+
+    .countdown-content {
+        text-align: center;
+    }
+
+    .countdown-icon {
+        font-size: 60px;
+        margin-bottom: 20px;
+        animation: icon-pulse 0.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes icon-pulse {
+        from { transform: scale(1); }
+        to { transform: scale(1.1); }
+    }
+
+    .countdown-number {
+        font-size: 180px;
+        font-weight: 900;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        text-shadow: 0 0 80px rgba(102, 126, 234, 0.5);
+        animation: number-pop 0.3s ease-out;
+        line-height: 1;
+        margin-bottom: 20px;
+    }
+
+    @keyframes number-pop {
+        0% { transform: scale(0.5); opacity: 0; }
+        50% { transform: scale(1.2); }
+        100% { transform: scale(1); opacity: 1; }
+    }
+
+    .countdown-number.ready {
+        font-size: 80px;
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        animation: ready-pop 0.5s ease-out;
+    }
+
+    @keyframes ready-pop {
+        0% { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+        50% { transform: scale(1.3) rotate(5deg); }
+        100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    .countdown-text {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 1.5rem;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+    }
+
+    .floating-exit-button {
+        position: fixed;
+        bottom: 32px;
+        right: 110px;
+        padding: 14px 34px;
+        border-radius: 999px;
+        background: rgba(69, 36, 93, 0.75);
+        border: 1px solid rgba(255, 102, 161, 0.85);
+        color: #ff9ad0;
+        font-weight: 600;
+        font-size: 16px;
+        letter-spacing: 0.5px;
+        text-decoration: none;
+        box-shadow: 0 14px 30px rgba(18, 26, 60, 0.45);
+        transition: transform 0.25s ease, box-shadow 0.25s ease, background 0.25s ease, color 0.25s ease;
+        z-index: 60;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 110px;
+    }
+
+    .floating-exit-button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 20px 36px rgba(18, 26, 60, 0.55);
+        background: rgba(80, 42, 110, 0.85);
+        border-color: rgba(255, 136, 189, 0.9);
+        color: #ffc6e6;
+    }
+
+    @media (max-width: 768px) {
+        .floating-exit-button {
+            bottom: 20px;
+            right: 90px;
+            padding: 12px 26px;
+            font-size: 15px;
+        }
+    }
+
+    /* ==================== */
+    /* CRONÔMETRO */
+    /* ==================== */
+    .quiz-timer-box {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+        border-radius: 12px;
+        font-weight: 700;
+        font-size: 18px;
+        transition: all 0.3s ease;
+        margin-left: 15px;
+    }
+
+    .quiz-timer-box .timer-icon {
+        font-size: 20px;
+    }
+
+    .quiz-timer-box .timer-value {
+        min-width: 40px;
+        text-align: center;
+    }
+
+    /* Estado Normal (0-14s) - Verde */
+    .timer-normal {
+        background: rgba(40, 167, 69, 0.2);
+        border: 2px solid rgba(40, 167, 69, 0.5);
+        color: #28a745;
+    }
+
+    /* Estado Alerta (15-29s) - Amarelo/Laranja */
+    .timer-warning {
+        background: rgba(255, 193, 7, 0.25);
+        border: 2px solid rgba(255, 193, 7, 0.6);
+        color: #ffc107;
+        animation: pulse-warning 1s ease-in-out infinite;
+    }
+
+    /* Estado Crítico (30s+) - Vermelho */
+    .timer-danger {
+        background: rgba(220, 53, 69, 0.3);
+        border: 2px solid rgba(220, 53, 69, 0.7);
+        color: #ff4757;
+        animation: pulse-danger 0.5s ease-in-out infinite;
+    }
+
+    @keyframes pulse-warning {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+
+    @keyframes pulse-danger {
+        0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
+        50% { transform: scale(1.08); box-shadow: 0 0 20px rgba(220, 53, 69, 0.6); }
+    }
+
+    @media (max-width: 768px) {
+        .quiz-timer-box {
+            padding: 8px 14px;
+            font-size: 16px;
+            margin-left: 10px;
+        }
+    }
+
+    /* Dica de Pontuação por Tempo */
+    .time-scoring-hint {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 20px;
+        padding: 12px 20px;
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.15), rgba(118, 75, 162, 0.15));
+        border: 1px solid rgba(102, 126, 234, 0.3);
+        border-radius: 12px;
+    }
+
+    .hint-icon {
+        font-size: 18px;
+    }
+
+    .hint-text {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    @media (max-width: 600px) {
+        .time-scoring-hint {
+            flex-direction: column;
+            text-align: center;
+            gap: 5px;
+            padding: 10px 15px;
+        }
+
+        .hint-text {
+            font-size: 11px;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // ==================== EFEITOS SONOROS ====================
+    function playCountdownSound(type, number) {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            if (type === 'number') {
+                const frequencies = { 3: 330, 2: 392, 1: 494 };
+                const freq = frequencies[number] || 440;
+                
+                oscillator.frequency.setValueAtTime(freq, audioContext.currentTime);
+                oscillator.type = 'sine';
+                gainNode.gain.setValueAtTime(0.35, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.4);
+            } else if (type === 'ready') {
+                const now = audioContext.currentTime;
+                const osc1 = audioContext.createOscillator();
+                const osc2 = audioContext.createOscillator();
+                const osc3 = audioContext.createOscillator();
+                const gain1 = audioContext.createGain();
+                const gain2 = audioContext.createGain();
+                const gain3 = audioContext.createGain();
+                
+                osc1.frequency.setValueAtTime(523.25, now);
+                osc1.type = 'sine';
+                gain1.gain.setValueAtTime(0.3, now);
+                gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                osc1.connect(gain1);
+                gain1.connect(audioContext.destination);
+                osc1.start(now);
+                osc1.stop(now + 0.2);
+                
+                osc2.frequency.setValueAtTime(659.25, now + 0.1);
+                osc2.type = 'sine';
+                gain2.gain.setValueAtTime(0.3, now + 0.1);
+                gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc2.connect(gain2);
+                gain2.connect(audioContext.destination);
+                osc2.start(now + 0.1);
+                osc2.stop(now + 0.3);
+                
+                osc3.frequency.setValueAtTime(783.99, now + 0.2);
+                osc3.type = 'sine';
+                gain3.gain.setValueAtTime(0.4, now + 0.2);
+                gain3.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+                osc3.connect(gain3);
+                gain3.connect(audioContext.destination);
+                osc3.start(now + 0.2);
+                osc3.stop(now + 0.6);
+            }
+        } catch (e) {
+            console.log('Erro ao tocar som:', e);
+        }
+    }
+    
+    function playCorrectSound() {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const now = audioContext.currentTime;
+            
+            const osc1 = audioContext.createOscillator();
+            const osc2 = audioContext.createOscillator();
+            const osc3 = audioContext.createOscillator();
+            const gain1 = audioContext.createGain();
+            const gain2 = audioContext.createGain();
+            const gain3 = audioContext.createGain();
+            
+            [osc1, osc2, osc3].forEach((osc, i) => {
+                const freqs = [523.25, 659.25, 783.99];
+                osc.frequency.setValueAtTime(freqs[i], now);
+                osc.type = 'sine';
+                const gain = [gain1, gain2, gain3][i];
+                gain.gain.setValueAtTime(0.25, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                osc.start(now);
+                osc.stop(now + 0.5);
+            });
+        } catch (e) {
+            console.log('Erro ao tocar som de acerto:', e);
+        }
+    }
+    
+    function playWrongSound() {
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const now = audioContext.currentTime;
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.setValueAtTime(293.66, now);
+            oscillator.frequency.exponentialRampToValueAtTime(220.00, now + 0.3);
+            oscillator.type = 'sawtooth';
+            gainNode.gain.setValueAtTime(0.3, now);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
+            oscillator.start(now);
+            oscillator.stop(now + 0.4);
+        } catch (e) {
+            console.log('Erro ao tocar som de erro:', e);
+        }
+    }
+    
+    // ==================== CONTAGEM REGRESSIVA ====================
+    const overlay = document.getElementById('countdown-overlay');
+    const numberEl = document.getElementById('countdown-number');
+    const textEl = document.querySelector('.countdown-text');
+    const iconEl = document.querySelector('.countdown-icon');
+    
+    const sessionKey = 'sala_countdown_done_{{ sala.id }}';
+    
+    if (sessionStorage.getItem(sessionKey)) {
+        if (overlay) {
+            overlay.classList.remove('active');
+            overlay.style.display = 'none';
+        }
+    } else if (overlay && numberEl) {
+        let count = 3;
+        const icons = ['🎯', '🧠', '⚡'];
+        
+        function updateCountdown() {
+            if (count > 0) {
+                numberEl.textContent = count;
+                numberEl.style.animation = 'none';
+                numberEl.offsetHeight;
+                numberEl.style.animation = 'number-pop 0.3s ease-out';
+                
+                if (iconEl) iconEl.textContent = icons[3 - count];
+                if (textEl) textEl.textContent = count === 3 ? 'Prepare-se!' : count === 2 ? 'Atenção!' : 'Já vai!';
+                
+                playCountdownSound('number', count);
+                
+                count--;
+                setTimeout(updateCountdown, 1000);
+            } else {
+                numberEl.textContent = 'PRONTO!';
+                numberEl.classList.add('ready');
+                if (iconEl) iconEl.textContent = '🚀';
+                if (textEl) textEl.textContent = 'Boa sorte!';
+                
+                playCountdownSound('ready');
+                
+                sessionStorage.setItem(sessionKey, 'true');
+                
+                setTimeout(function() {
+                    overlay.classList.add('fade-out');
+                    setTimeout(function() {
+                        overlay.style.display = 'none';
+                    }, 500);
+                }, 800);
+            }
+        }
+        
+        setTimeout(updateCountdown, 500);
+    }
+    
+    // ==================== QUIZ FORM ====================
+    const quizForm = document.querySelector('.quiz-form');
+    if (!quizForm) {
+        return;
+    }
+
+    const radios = quizForm.querySelectorAll('input[name="resposta"]');
+    const button = quizForm.querySelector('.btn-answer');
+
+    radios.forEach(function (radio) {
+        radio.addEventListener('change', function () {
+            if (button) {
+                button.disabled = !quizForm.querySelector('input[name="resposta"]:checked');
+            }
+        });
+    });
+
+    if (button) {
+        button.disabled = !quizForm.querySelector('input[name="resposta"]:checked');
+    }
+
+    const feedback = document.getElementById('quiz-feedback');
+    if (feedback) {
+        if (feedback.className.includes('success')) {
+            playCorrectSound();
+        } else if (feedback.className.includes('error')) {
+            playWrongSound();
+        }
+        
+        setTimeout(function () {
+            feedback.classList.add('is-hidden');
+        }, 5000);
+    }
+    
+    // ==================== CRONÔMETRO ====================
+    let seconds = 0;
+    let timerInterval = null;
+    const timerBox = document.getElementById('quiz-timer');
+    const timerValue = document.getElementById('timer-seconds');
+    
+    if (timerBox && timerValue) {
+        function updateTimer() {
+            seconds++;
+            timerValue.textContent = seconds + 's';
+            
+            timerBox.classList.remove('timer-normal', 'timer-warning', 'timer-danger');
+            
+            if (seconds >= 30) {
+                timerBox.classList.add('timer-danger');
+            } else if (seconds >= 15) {
+                timerBox.classList.add('timer-warning');
+            } else {
+                timerBox.classList.add('timer-normal');
+            }
+        }
+        
+        timerBox.classList.add('timer-normal');
+        timerInterval = setInterval(updateTimer, 1000);
+        
+        quizForm.addEventListener('submit', function() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+

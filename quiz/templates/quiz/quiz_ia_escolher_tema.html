@@ -1,0 +1,842 @@
+{% extends "quiz/base.html" %}
+{% load static %}
+
+{% block title %}Quiz com IA - Escolher Tema{% endblock %}
+
+{% block extra_js %}
+<!-- Música de Fundo para Quiz IA -->
+<audio id="quiz-ia-music" loop preload="auto" autoplay>
+    <source src="{% static 'quiz/audio/musica3.mp3' %}" type="audio/mpeg">
+</audio>
+
+<script>
+// Desabilitar auto-logout para esta página
+window.__infoQuizAutoLogoutDispatched = true;
+
+// Iniciar música quando a página carregar
+document.addEventListener('DOMContentLoaded', function() {
+    const music = document.getElementById('quiz-ia-music');
+    if (music) {
+        music.volume = 0.4;
+        
+        // Tentar recuperar posição da música se existir
+        const savedPosition = sessionStorage.getItem('quiz_ia_music_position');
+        if (savedPosition) {
+            music.currentTime = parseFloat(savedPosition);
+        }
+        
+        // Tentar tocar imediatamente (pode falhar por políticas de autoplay)
+        const tryPlayMusic = function() {
+            music.play().then(function() {
+                // Sucesso! Música começou a tocar
+                console.log('Música iniciada automaticamente');
+            }).catch(function(e) {
+                // Falhou, aguardar interação do usuário
+                console.log('Autoplay bloqueado, aguardando interação');
+            });
+        };
+        
+        // Tentar tocar imediatamente
+        tryPlayMusic();
+        
+        // Se falhar, tentar novamente em qualquer interação
+        const startMusicOnInteraction = function() {
+            if (music.paused) {
+                music.play().catch(function(e) {
+                    console.log('Ainda bloqueado');
+                });
+            }
+            document.removeEventListener('click', startMusicOnInteraction);
+            document.removeEventListener('touchstart', startMusicOnInteraction);
+            document.removeEventListener('mousemove', startMusicOnInteraction);
+        };
+        
+        // Tentar em várias interações para começar mais rápido
+        document.addEventListener('click', startMusicOnInteraction, { once: true });
+        document.addEventListener('touchstart', startMusicOnInteraction, { once: true });
+        document.addEventListener('mousemove', startMusicOnInteraction, { once: true });
+        
+        // Salvar posição da música periodicamente
+        setInterval(function() {
+            if (!music.paused) {
+                sessionStorage.setItem('quiz_ia_music_position', music.currentTime);
+            }
+        }, 1000);
+        
+        // Salvar posição antes de sair da página
+        window.addEventListener('beforeunload', function() {
+            if (!music.paused) {
+                sessionStorage.setItem('quiz_ia_music_position', music.currentTime);
+            }
+        });
+    }
+});
+
+// Marcar todos os forms como navegação interna e mostrar loading
+document.addEventListener('DOMContentLoaded', function() {
+    const forms = document.querySelectorAll('form');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    
+    forms.forEach(function(form) {
+        form.addEventListener('submit', function() {
+            window.__infoQuizAutoLogoutDispatched = true;
+            // Mostrar overlay de loading
+            if (loadingOverlay) {
+                loadingOverlay.classList.add('active');
+                startLoadingAnimation();
+            }
+        });
+    });
+});
+
+// Animação de loading com mensagens rotativas
+function startLoadingAnimation() {
+    const messages = [
+        "🤖 Conectando com a IA...",
+        "🧠 Gerando perguntas inteligentes...",
+        "📚 Organizando por dificuldade...",
+        "✨ Preparando seu quiz...",
+        "🎯 Finalizando...",
+    ];
+    
+    const loadingText = document.getElementById('loading-text');
+    let index = 0;
+    
+    if (loadingText) {
+        setInterval(function() {
+            loadingText.textContent = messages[index];
+            index = (index + 1) % messages.length;
+        }, 2000);
+    }
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<!-- Overlay de Loading -->
+<div id="loading-overlay" class="loading-overlay">
+    <div class="loading-content">
+        <div class="robot-thinking">
+            <div class="robot-head">
+                <div class="robot-face">🤖</div>
+                <div class="thinking-dots">
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                    <span class="dot"></span>
+                </div>
+            </div>
+            <div class="robot-gears">
+                <span class="gear">⚙️</span>
+                <span class="gear">⚙️</span>
+            </div>
+        </div>
+        <h2 class="loading-title">Gerando Quiz...</h2>
+        <p id="loading-text" class="loading-text">🤖 Conectando com a IA...</p>
+        <div class="loading-progress">
+            <div class="loading-bar"></div>
+        </div>
+        <p class="loading-hint">Isso pode levar alguns segundos...</p>
+    </div>
+</div>
+
+<div class="quiz-ia-container">
+    <div class="quiz-ia-header">
+        <div class="ia-badge">
+            <span class="ia-icon">🤖</span>
+            <span class="ia-text">Powered by AI</span>
+        </div>
+        <h2 class="quiz-ia-title">Quiz Gerado por IA</h2>
+        <p class="quiz-ia-subtitle">Escolha um tema sugerido ou crie o seu próprio!</p>
+    </div>
+
+    <!-- Formulário de Tema Personalizado -->
+    <div class="custom-theme-section">
+        <h3 class="section-title">📝 Criar Tema Personalizado</h3>
+        <form method="post" action="{% url 'quiz:quiz_ia_gerar' %}" class="custom-theme-form">
+            {% csrf_token %}
+            <div class="input-group">
+                <input 
+                    type="text" 
+                    name="tema" 
+                    class="theme-input" 
+                    placeholder="Digite o tema que deseja estudar..."
+                    maxlength="100"
+                    required
+                >
+                <button type="submit" class="btn-generate">
+                    <span class="btn-icon">✨</span>
+                    Gerar Quiz
+                </button>
+            </div>
+            <p class="input-hint">Ex: Machine Learning, Arquitetura de Software, Django Framework...</p>
+        </form>
+    </div>
+
+    <!-- Temas Sugeridos -->
+    <div class="suggested-themes-section">
+        <h3 class="section-title">🎯 Temas Sugeridos</h3>
+        <div class="themes-grid">
+            {% for tema in temas_sugeridos %}
+            <form method="post" action="{% url 'quiz:quiz_ia_gerar' %}" class="theme-card-form">
+                {% csrf_token %}
+                <input type="hidden" name="tema" value="{{ tema.nome }}">
+                <button type="submit" class="theme-card-ia">
+                    <div class="theme-emoji-ia">{{ tema.emoji }}</div>
+                    <h4 class="theme-name-ia">{{ tema.nome }}</h4>
+                    <p class="theme-desc-ia">{{ tema.descricao }}</p>
+                    <div class="theme-arrow-ia">→</div>
+                </button>
+            </form>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Ranking Geral IA -->
+    {% if ranking_ia %}
+    <div class="ranking-ia-section">
+        <h3 class="section-title">🏆 Ranking Geral - Quiz IA</h3>
+        <div class="ranking-ia-container">
+            <table class="ranking-ia-table">
+                <thead>
+                    <tr>
+                        <th class="col-pos">#</th>
+                        <th class="col-player">Jogador</th>
+                        <th class="col-points">Pontos Totais</th>
+                        <th class="col-quizzes">Quizzes</th>
+                        <th class="col-avg">Acertos</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in ranking_ia %}
+                    <tr class="ranking-row {% if item.posicao == 1 %}gold{% elif item.posicao == 2 %}silver{% elif item.posicao == 3 %}bronze{% endif %} {% if item.atual %}current{% endif %} {% if item.fora_ranking %}outside{% endif %}">
+                        <td class="col-pos">
+                            {% if item.posicao == 1 %}
+                                <span class="medal">🥇</span>
+                            {% elif item.posicao == 2 %}
+                                <span class="medal">🥈</span>
+                            {% elif item.posicao == 3 %}
+                                <span class="medal">🥉</span>
+                            {% else %}
+                                <span class="pos-number">{{ item.posicao }}º</span>
+                            {% endif %}
+                        </td>
+                        <td class="col-player">
+                            <span class="player-name">{{ item.usuario }}</span>
+                            {% if item.atual %}
+                                <span class="you-badge">Você</span>
+                            {% endif %}
+                        </td>
+                        <td class="col-points">
+                            <span class="points-value">{{ item.pontos }}</span>
+                        </td>
+                        <td class="col-quizzes">{{ item.quizzes }}</td>
+                        <td class="col-avg">{{ item.percentual }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Informações -->
+    <div class="info-section">
+        <div class="info-card">
+            <h4>📊 Estrutura do Quiz</h4>
+            <ul>
+                <li><strong>15 perguntas</strong> por rodada</li>
+                <li><strong>3 níveis:</strong> Fácil, Médio, Difícil</li>
+                <li><strong>5 perguntas</strong> por nível</li>
+            </ul>
+        </div>
+        <div class="info-card">
+            <h4>💡 Dica</h4>
+            <p>Seja específico no tema para perguntas mais relevantes. Por exemplo: "Python para Data Science" em vez de apenas "Python".</p>
+        </div>
+    </div>
+
+    <div class="back-section">
+        <a href="{% url 'quiz:dashboard' %}" class="btn-back">← Voltar ao Dashboard</a>
+    </div>
+</div>
+
+<style>
+/* ==================== */
+/* LOADING OVERLAY */
+/* ==================== */
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 10, 30, 0.95);
+    backdrop-filter: blur(10px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.loading-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.loading-content {
+    text-align: center;
+    max-width: 400px;
+    padding: 40px;
+}
+
+/* Robô Pensando */
+.robot-thinking {
+    position: relative;
+    margin-bottom: 30px;
+}
+
+.robot-head {
+    position: relative;
+    display: inline-block;
+}
+
+.robot-face {
+    font-size: 100px;
+    animation: robot-bounce 1s ease-in-out infinite;
+    filter: drop-shadow(0 0 30px rgba(102, 126, 234, 0.5));
+}
+
+@keyframes robot-bounce {
+    0%, 100% { transform: translateY(0) rotate(-5deg); }
+    50% { transform: translateY(-15px) rotate(5deg); }
+}
+
+.thinking-dots {
+    position: absolute;
+    top: -20px;
+    right: -30px;
+    display: flex;
+    gap: 5px;
+    background: rgba(102, 126, 234, 0.3);
+    padding: 8px 12px;
+    border-radius: 20px;
+    border: 2px solid rgba(102, 126, 234, 0.5);
+}
+
+.thinking-dots .dot {
+    width: 10px;
+    height: 10px;
+    background: #667eea;
+    border-radius: 50%;
+    animation: dot-pulse 1.4s ease-in-out infinite;
+}
+
+.thinking-dots .dot:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.thinking-dots .dot:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes dot-pulse {
+    0%, 80%, 100% { transform: scale(0.6); opacity: 0.5; }
+    40% { transform: scale(1); opacity: 1; }
+}
+
+.robot-gears {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+}
+
+.robot-gears .gear {
+    font-size: 24px;
+    animation: gear-spin 2s linear infinite;
+}
+
+.robot-gears .gear:nth-child(2) {
+    animation-direction: reverse;
+    animation-duration: 1.5s;
+}
+
+@keyframes gear-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+.loading-title {
+    color: #fff;
+    font-size: 2rem;
+    margin-bottom: 15px;
+    background: linear-gradient(135deg, #667eea, #764ba2, #667eea);
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: gradient-flow 3s ease infinite;
+}
+
+@keyframes gradient-flow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+.loading-text {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 1.1rem;
+    margin-bottom: 25px;
+    min-height: 30px;
+}
+
+.loading-progress {
+    width: 100%;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 20px;
+}
+
+.loading-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #667eea, #764ba2, #667eea);
+    background-size: 200% 100%;
+    border-radius: 10px;
+    animation: loading-progress 2s ease-in-out infinite, gradient-move 1s linear infinite;
+}
+
+@keyframes loading-progress {
+    0% { width: 0%; }
+    50% { width: 70%; }
+    100% { width: 100%; }
+}
+
+@keyframes gradient-move {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 200% 0%; }
+}
+
+.loading-hint {
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.9rem;
+    font-style: italic;
+}
+
+.quiz-ia-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.quiz-ia-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.ia-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 8px 16px;
+    border-radius: 20px;
+    margin-bottom: 15px;
+}
+
+.ia-icon {
+    font-size: 20px;
+}
+
+.ia-text {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.quiz-ia-title {
+    font-size: 2.5rem;
+    color: #fff;
+    margin-bottom: 10px;
+    text-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+.quiz-ia-subtitle {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 1.1rem;
+}
+
+/* Seção de Tema Personalizado */
+.custom-theme-section {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 30px;
+    margin-bottom: 40px;
+}
+
+.section-title {
+    color: #fff;
+    font-size: 1.3rem;
+    margin-bottom: 20px;
+}
+
+.custom-theme-form {
+    width: 100%;
+}
+
+.input-group {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.theme-input {
+    flex: 1;
+    min-width: 250px;
+    padding: 15px 20px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 16px;
+    transition: all 0.3s ease;
+}
+
+.theme-input:focus {
+    outline: none;
+    border-color: #667eea;
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.theme-input::placeholder {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.btn-generate {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 15px 30px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 12px;
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.btn-generate:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+}
+
+.btn-icon {
+    font-size: 20px;
+}
+
+.input-hint {
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 13px;
+    margin-top: 10px;
+}
+
+/* Temas Sugeridos */
+.suggested-themes-section {
+    margin-bottom: 40px;
+}
+
+.themes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 20px;
+}
+
+.theme-card-form {
+    margin: 0;
+}
+
+.theme-card-ia {
+    width: 100%;
+    padding: 25px 20px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 2px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-align: center;
+    color: #fff;
+}
+
+.theme-card-ia:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(102, 126, 234, 0.5);
+    transform: translateY(-5px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.theme-emoji-ia {
+    font-size: 40px;
+    margin-bottom: 12px;
+}
+
+.theme-name-ia {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    color: #fff;
+}
+
+.theme-desc-ia {
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 10px;
+}
+
+.theme-arrow-ia {
+    font-size: 20px;
+    color: #667eea;
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.theme-card-ia:hover .theme-arrow-ia {
+    opacity: 1;
+    transform: translateX(5px);
+}
+
+/* Informações */
+.info-section {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.info-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 20px;
+}
+
+.info-card h4 {
+    color: #fff;
+    font-size: 16px;
+    margin-bottom: 12px;
+}
+
+.info-card ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.info-card li {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+    padding: 5px 0;
+}
+
+.info-card p {
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* ==================== */
+/* RANKING IA */
+/* ==================== */
+.ranking-ia-section {
+    background: rgba(255, 255, 255, 0.08);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 20px;
+    padding: 25px;
+    margin-bottom: 40px;
+}
+
+.ranking-ia-container {
+    overflow-x: auto;
+}
+
+.ranking-ia-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+.ranking-ia-table thead {
+    border-bottom: 2px solid rgba(255, 255, 255, 0.2);
+}
+
+.ranking-ia-table th {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 12px 10px;
+}
+
+.ranking-ia-table td {
+    padding: 14px 10px;
+    color: #fff;
+    font-size: 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.ranking-row {
+    transition: all 0.3s ease;
+}
+
+.ranking-row:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.ranking-row.gold {
+    background: linear-gradient(90deg, rgba(255, 215, 0, 0.15), transparent);
+}
+
+.ranking-row.silver {
+    background: linear-gradient(90deg, rgba(192, 192, 192, 0.15), transparent);
+}
+
+.ranking-row.bronze {
+    background: linear-gradient(90deg, rgba(205, 127, 50, 0.15), transparent);
+}
+
+.ranking-row.current {
+    background: linear-gradient(90deg, rgba(102, 126, 234, 0.25), rgba(118, 75, 162, 0.15));
+    border-left: 3px solid #667eea;
+}
+
+.ranking-row.outside {
+    border-top: 2px dashed rgba(255, 255, 255, 0.2);
+    opacity: 0.9;
+}
+
+.col-pos {
+    width: 60px;
+    text-align: center;
+}
+
+.medal {
+    font-size: 22px;
+}
+
+.pos-number {
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.col-player {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.player-name {
+    font-weight: 500;
+}
+
+.you-badge {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.col-points {
+    font-weight: 700;
+}
+
+.points-value {
+    background: rgba(102, 126, 234, 0.2);
+    padding: 4px 12px;
+    border-radius: 8px;
+    color: #a8b4ff;
+}
+
+.col-quizzes, .col-avg {
+    color: rgba(255, 255, 255, 0.7);
+    text-align: center;
+}
+
+@media (max-width: 600px) {
+    .ranking-ia-table th,
+    .ranking-ia-table td {
+        padding: 10px 6px;
+        font-size: 12px;
+    }
+    
+    .medal {
+        font-size: 18px;
+    }
+    
+    .you-badge {
+        font-size: 9px;
+        padding: 2px 6px;
+    }
+    
+    .col-avg {
+        display: none;
+    }
+}
+
+/* Botão Voltar */
+.back-section {
+    text-align: center;
+    margin-top: 20px;
+}
+
+.btn-back {
+    display: inline-block;
+    padding: 12px 25px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    border-radius: 10px;
+    color: #fff;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.btn-back:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Responsivo */
+@media (max-width: 600px) {
+    .quiz-ia-title {
+        font-size: 1.8rem;
+    }
+    
+    .input-group {
+        flex-direction: column;
+    }
+    
+    .btn-generate {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .themes-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+</style>
+{% endblock %}
+
+

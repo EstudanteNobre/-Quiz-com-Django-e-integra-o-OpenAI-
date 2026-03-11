@@ -1,0 +1,332 @@
+{% extends "quiz/base.html" %}
+
+{% block title %}Resultado - Quiz IA{% endblock %}
+
+{% block extra_js %}
+<script>
+// Desabilitar auto-logout para esta página
+window.__infoQuizAutoLogoutDispatched = true;
+
+// Limpar sessão de contagem regressiva para o próximo quiz
+document.addEventListener('DOMContentLoaded', function() {
+    // Limpar todas as chaves de contagem regressiva
+    Object.keys(sessionStorage).forEach(function(key) {
+        if (key.startsWith('quiz_ia_countdown_done_') || key.startsWith('quiz_countdown_done_')) {
+            sessionStorage.removeItem(key);
+        }
+    });
+});
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="quiz-ia-result-container">
+    <div class="result-card">
+        <!-- Cabeçalho -->
+        <div class="result-header">
+            <div class="ia-badge">
+                <span class="ia-icon">🤖</span>
+                <span class="ia-text">Quiz com IA</span>
+            </div>
+            <h2 class="result-title">{{ mensagem }}</h2>
+            <p class="result-tema">Tema: <strong>{{ tema }}</strong></p>
+        </div>
+
+        <!-- Estatísticas -->
+        <div class="result-stats">
+            <div class="stat-circle">
+                <div class="circle-progress" style="--percentage: {{ percentual_acertos }}">
+                    <span class="circle-value">{{ percentual_acertos }}%</span>
+                    <span class="circle-label">Acertos</span>
+                </div>
+            </div>
+            
+            <div class="stats-details">
+                <div class="stat-row">
+                    <span class="stat-icon">✅</span>
+                    <span class="stat-text">Respostas Corretas</span>
+                    <span class="stat-number">{{ corretas }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-icon">❌</span>
+                    <span class="stat-text">Respostas Erradas</span>
+                    <span class="stat-number">{{ erradas }}</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-icon">📊</span>
+                    <span class="stat-text">Total de Perguntas</span>
+                    <span class="stat-number">{{ total_respondidas }}</span>
+                </div>
+                <div class="stat-row highlight">
+                    <span class="stat-icon">⭐</span>
+                    <span class="stat-text">Pontuação Final</span>
+                    <span class="stat-number">{{ pontuacao }} pts</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ações -->
+        <div class="result-actions">
+            {% if tem_perguntas_erradas %}
+            <a href="{% url 'quiz:quiz_ia_revisar_erradas' %}" class="btn-action btn-review-action">
+                <span class="btn-icon">📚</span>
+                Revisar Perguntas Erradas
+            </a>
+            {% endif %}
+            <a href="{% url 'quiz:quiz_ia_escolher_tema' %}" class="btn-action btn-primary-action">
+                <span class="btn-icon">🎮</span>
+                Jogar Novo Quiz
+            </a>
+            <a href="{% url 'quiz:dashboard' %}" class="btn-action btn-secondary-action">
+                <span class="btn-icon">🏠</span>
+                Ir para Dashboard
+            </a>
+        </div>
+
+        <!-- Dica -->
+        <div class="result-tip">
+            <p>💡 <strong>Dica:</strong> Quanto mais você praticar, melhor ficará! Tente novamente com o mesmo tema ou explore novos assuntos.</p>
+        </div>
+    </div>
+</div>
+
+<style>
+.quiz-ia-result-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.result-card {
+    background: rgba(255, 255, 255, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 25px;
+    padding: 40px;
+    text-align: center;
+}
+
+/* Cabeçalho */
+.result-header {
+    margin-bottom: 35px;
+}
+
+.ia-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 8px 16px;
+    border-radius: 20px;
+    margin-bottom: 20px;
+}
+
+.ia-icon {
+    font-size: 18px;
+}
+
+.ia-text {
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.result-title {
+    font-size: 2rem;
+    color: #fff;
+    margin-bottom: 10px;
+}
+
+.result-tema {
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 16px;
+}
+
+/* Estatísticas */
+.result-stats {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 30px;
+    margin-bottom: 35px;
+}
+
+.stat-circle {
+    position: relative;
+}
+
+.circle-progress {
+    width: 150px;
+    height: 150px;
+    border-radius: 50%;
+    background: conic-gradient(
+        #667eea calc(var(--percentage) * 1%),
+        rgba(255, 255, 255, 0.1) calc(var(--percentage) * 1%)
+    );
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.circle-progress::before {
+    content: '';
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    background: rgba(26, 26, 46, 0.95);
+    border-radius: 50%;
+}
+
+.circle-value {
+    position: relative;
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #fff;
+    z-index: 1;
+}
+
+.circle-label {
+    position: relative;
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+    z-index: 1;
+}
+
+.stats-details {
+    width: 100%;
+    max-width: 350px;
+}
+
+.stat-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 12px 15px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    margin-bottom: 10px;
+}
+
+.stat-row.highlight {
+    background: rgba(102, 126, 234, 0.2);
+    border: 1px solid rgba(102, 126, 234, 0.3);
+}
+
+.stat-icon {
+    font-size: 18px;
+}
+
+.stat-text {
+    flex: 1;
+    text-align: left;
+    margin-left: 12px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+}
+
+.stat-number {
+    font-weight: bold;
+    color: #fff;
+    font-size: 16px;
+}
+
+/* Ações */
+.result-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 30px;
+}
+
+.btn-action {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 15px 25px;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.3s ease;
+}
+
+.btn-primary-action {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+}
+
+.btn-primary-action:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.5);
+}
+
+.btn-secondary-action {
+    background: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    color: #fff;
+}
+
+.btn-secondary-action:hover {
+    background: rgba(255, 255, 255, 0.2);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.btn-review-action {
+    background: linear-gradient(135deg, #ff6b9d 0%, #c44569 100%);
+    color: #fff;
+}
+
+.btn-review-action:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 30px rgba(255, 107, 157, 0.5);
+}
+
+.btn-icon {
+    font-size: 20px;
+}
+
+/* Dica */
+.result-tip {
+    padding: 15px 20px;
+    background: rgba(255, 193, 7, 0.1);
+    border: 1px solid rgba(255, 193, 7, 0.3);
+    border-radius: 12px;
+}
+
+.result-tip p {
+    margin: 0;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+/* Responsivo */
+@media (max-width: 500px) {
+    .result-card {
+        padding: 25px;
+    }
+    
+    .result-title {
+        font-size: 1.5rem;
+    }
+    
+    .circle-progress {
+        width: 120px;
+        height: 120px;
+    }
+    
+    .circle-progress::before {
+        width: 95px;
+        height: 95px;
+    }
+    
+    .circle-value {
+        font-size: 2rem;
+    }
+}
+</style>
+{% endblock %}
+
